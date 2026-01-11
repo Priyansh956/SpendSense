@@ -1,18 +1,10 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:spendsense/firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:spendsense/screens/homepage.dart';
 import 'package:spendsense/theme/app_color_schema.dart';
-
-void main() async{
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  runApp(LoginPage());
-}
-
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -26,43 +18,39 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  Future<void> loginUser() async{
+  void loginCheck() async{
     try{
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: _emailController.text,
-          password: _passwordController.text,
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: _emailController.text.trim(), password: _passwordController.text.trim(),
       );
 
-      if(mounted){
-        Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-                builder: (context) => Homepage(),
-            ),
-        );
-      }
+      if(!mounted) return;
 
-      _emailController.clear();
-      _passwordController.clear();
+      Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => Homepage()),
+      );
     }
-
-    catch(e){
+    on FirebaseAuthException catch(e){
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("$e")),
+        SnackBar(
+            content: Text(e.message ?? "Login Failed"),
+        )
       );
     }
   }
-
+  
   @override
+  void dispose(){
+    _emailController.dispose();
+    _passwordController.dispose();
+  }
+
   Widget build(BuildContext context) {
 
     //TODO: REMOVE MATERIAL APP WIDGET AFTER TESTING IS DONE
-    return MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(
-          title: Text("Login Page"),
-          // backgroundColor: Color.fromRGBO(13, 13, 13, 1),
-        ),
+    return Scaffold(
+        appBar: AppBar(title: Text("Login Page"),),
         body: SafeArea(
           child: Center(
             child: Padding(
@@ -84,6 +72,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
 
+                    SizedBox(height: 8),
 
                     TextFormField(
                       controller: _emailController,
@@ -108,6 +97,7 @@ class _LoginPageState extends State<LoginPage> {
 
                     TextFormField(
                         controller: _passwordController,
+                        obscureText: true,
                         decoration: InputDecoration(
                           label: Row(
                             children: [
@@ -126,7 +116,14 @@ class _LoginPageState extends State<LoginPage> {
                     ),
 
                     //TODO: ADD FORGOT PASSWORD
-                    // SizedBox(height: 96,),
+                    CupertinoButton(
+                        padding: EdgeInsets.zero,
+
+                        child: Text("Forgot Password"),
+                        onPressed: (){
+
+                        }
+                    ),
 
                     SizedBox(height: 48),
 
@@ -135,16 +132,12 @@ class _LoginPageState extends State<LoginPage> {
                           Expanded(
                           child: ElevatedButton(
                               onPressed: (){
-                                if(_formKey.currentState!.validate()){
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text("Login Successful!"),
-                                    )
-                                  );
+                                if(_formKey.currentState!.validate()) {
+                                  loginCheck();
                                 }
                               },
                               child: Text(
-                                "Submit",
+                                "Login",
                               )
                           ),
                         ),
@@ -156,8 +149,7 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 }
 
