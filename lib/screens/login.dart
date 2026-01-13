@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:spendsense/firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:spendsense/screens/homepage.dart';
+import 'package:spendsense/screens/addTransaction.dart';
 import 'package:spendsense/theme/app_color_schema.dart';
 
 class LoginPage extends StatefulWidget {
@@ -28,7 +28,7 @@ class _LoginPageState extends State<LoginPage> {
 
       Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => Homepage()),
+          MaterialPageRoute(builder: (context) => AddTransactionPage()),
       );
     }
     on FirebaseAuthException catch(e){

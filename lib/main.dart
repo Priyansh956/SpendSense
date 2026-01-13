@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'screens/signup.dart';
+import 'package:spendsense/screens/homepage.dart';
+import 'package:spendsense/screens/signup.dart';
 import 'firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
-
+import 'screens/login.dart';
+import 'screens/addTransaction.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,7 +24,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
 
       // 🔁 SWITCH THIS LINE TO TEST DIFFERENT SCREENS
-      home: const SignupPage(),
+      home: const ExpenseHistory(),
       // home: const LoginPage(),
     );
   }
