@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:spendsense/screens/add_transaction_page_updated.dart';
+import 'package:spendsense/screens/signup.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -45,7 +46,6 @@ class _LoginPageState extends State<LoginPage> {
 
   Widget build(BuildContext context) {
 
-    //TODO: REMOVE MATERIAL APP WIDGET AFTER TESTING IS DONE
     return Scaffold(
         appBar: AppBar(title: Text("Login Page"),),
         body: SafeArea(
@@ -112,13 +112,15 @@ class _LoginPageState extends State<LoginPage> {
                         }
                     ),
 
-                    //TODO: ADD FORGOT PASSWORD
                     CupertinoButton(
                         padding: EdgeInsets.zero,
 
-                        child: Text("Forgot Password"),
+                        child: Text("New user? Sign-Up"),
                         onPressed: (){
-
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (context) => SignupPage()),
+                          );
                         }
                     ),
 

@@ -92,58 +92,58 @@ class AuthWrapper extends StatelessWidget {
         }
         
         // User is not logged in - return your login page
-        // return const LoginPage();
+        return const LoginPage();
         
         // Temporary placeholder - replace with your login page
-        return Scaffold(
-          backgroundColor: AppColors.black,
-          body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.account_balance_wallet,
-                  size: 80,
-                  color: AppColors.neonGreen,
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'SpendSense',
-                  style: TextStyle(
-                    color: AppColors.white,
-                    fontSize: 36,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 48),
-                ElevatedButton(
-                  onPressed: () {
-                    // Navigate to your login page
-                    // Navigator.pushNamed(context, '/login');
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.neonGreen,
-                    foregroundColor: AppColors.black,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 48,
-                      vertical: 16,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: const Text(
-                    'Get Started',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
+        // return Scaffold(
+        //   backgroundColor: AppColors.black,
+        //   body: Center(
+        //     child: Column(
+        //       mainAxisAlignment: MainAxisAlignment.center,
+        //       children: [
+        //         const Icon(
+        //           Icons.account_balance_wallet,
+        //           size: 80,
+        //           color: AppColors.neonGreen,
+        //         ),
+        //         const SizedBox(height: 24),
+        //         const Text(
+        //           'SpendSense',
+        //           style: TextStyle(
+        //             color: AppColors.white,
+        //             fontSize: 36,
+        //             fontWeight: FontWeight.bold,
+        //           ),
+        //         ),
+        //         const SizedBox(height: 48),
+        //         ElevatedButton(
+        //           onPressed: () {
+        //             // Navigate to your login page
+        //             // Navigator.pushNamed(context, '/login');
+        //           },
+        //           style: ElevatedButton.styleFrom(
+        //             backgroundColor: AppColors.neonGreen,
+        //             foregroundColor: AppColors.black,
+        //             padding: const EdgeInsets.symmetric(
+        //               horizontal: 48,
+        //               vertical: 16,
+        //             ),
+        //             shape: RoundedRectangleBorder(
+        //               borderRadius: BorderRadius.circular(16),
+        //             ),
+        //           ),
+        //           child: const Text(
+        //             'Get Started',
+        //             style: TextStyle(
+        //               fontSize: 18,
+        //               fontWeight: FontWeight.bold,
+        //             ),
+        //           ),
+        //         ),
+        //       ],
+        //     ),
+        //   ),
+        // );
       },
     );
   }

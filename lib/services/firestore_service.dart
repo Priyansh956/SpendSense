@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/transaction_model.dart';
-import '../providers/transaction_provider.dart';
+import 'package:spendsense/models/transaction_model.dart' as app;
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -10,11 +9,14 @@ class FirestoreService {
   String? get userId => _auth.currentUser?.uid;
 
   // Add Transaction
-  Future<void> addTransaction(Transaction transaction) async {
+  Future<void> addTransaction(app.Transaction transaction) async {
     try {
+      final uid = userId;
+      if (uid == null) throw Exception('User not logged in');
+
       await _db
           .collection('users')
-          .doc(userId)
+          .doc(uid)
           .collection('transactions')
           .doc(transaction.id)
           .set(transaction.toMap());
@@ -24,11 +26,14 @@ class FirestoreService {
   }
 
   // Update Transaction
-  Future<void> updateTransaction(Transaction transaction) async {
+  Future<void> updateTransaction(app.Transaction transaction) async {
     try {
+      final uid = userId;
+      if (uid == null) throw Exception('User not logged in');
+
       await _db
           .collection('users')
-          .doc(userId)
+          .doc(uid)
           .collection('transactions')
           .doc(transaction.id)
           .update(transaction.toMap());
@@ -40,9 +45,12 @@ class FirestoreService {
   // Delete Transaction
   Future<void> deleteTransaction(String transactionId) async {
     try {
+      final uid = userId;
+      if (uid == null) throw Exception('User not logged in');
+
       await _db
           .collection('users')
-          .doc(userId)
+          .doc(uid)
           .collection('transactions')
           .doc(transactionId)
           .delete();
@@ -51,51 +59,75 @@ class FirestoreService {
     }
   }
 
-  // Get All Transactions
-  Stream<List<Transaction>> getTransactions() {
-    return _db
-        .collection('users')
-        .doc(userId)
-        .collection('transactions')
-        .orderBy('date', descending: true)
-        .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Transaction.fromMap(doc.data())).toList());
-  }
+  // Get Transactions Stream
+  Stream<List<app.Transaction>> getTransactions() {
+    final uid = userId;
+    if (uid == null) return Stream.value([]);
 
-  // Get Transactions by Date Range
-  Stream<List<Transaction>> getTransactionsByDateRange(
-      DateTime start, DateTime end) {
     return _db
         .collection('users')
-        .doc(userId)
+        .doc(uid)
         .collection('transactions')
-        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
-        .where('date', isLessThanOrEqualTo: Timestamp.fromDate(end))
         .orderBy('date', descending: true)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Transaction.fromMap(doc.data())).toList());
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => app.Transaction.fromMap(doc.data()))
+          .toList();
+    });
   }
 
   // Get Transactions by Category
-  Stream<List<Transaction>> getTransactionsByCategory(String category) {
+  Stream<List<app.Transaction>> getTransactionsByCategory(String category) {
+    final uid = userId;
+    if (uid == null) return Stream.value([]);
+
     return _db
         .collection('users')
-        .doc(userId)
+        .doc(uid)
         .collection('transactions')
         .where('category', isEqualTo: category)
         .orderBy('date', descending: true)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Transaction.fromMap(doc.data())).toList());
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => app.Transaction.fromMap(doc.data()))
+          .toList();
+    });
   }
 
-  // Save User Categories
+  // Get Transactions by Date Range
+  Stream<List<app.Transaction>> getTransactionsByDateRange(
+      DateTime startDate, DateTime endDate) {
+    final uid = userId;
+    if (uid == null) return Stream.value([]);
+
+    return _db
+        .collection('users')
+        .doc(uid)
+        .collection('transactions')
+        .where('date', isGreaterThanOrEqualTo: startDate.toIso8601String())
+        .where('date', isLessThanOrEqualTo: endDate.toIso8601String())
+        .orderBy('date', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => app.Transaction.fromMap(doc.data()))
+          .toList();
+    });
+  }
+
+  // Save user categories
   Future<void> saveUserCategories(List<String> categories) async {
     try {
-      await _db.collection('users').doc(userId).set({
-        'selectedCategories': categories,
+      final uid = userId;
+      if (uid == null) throw Exception('User not logged in');
+
+      await _db
+          .collection('users')
+          .doc(uid)
+          .set({
+        'categories': categories,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {
@@ -103,16 +135,23 @@ class FirestoreService {
     }
   }
 
-  // Get User Categories
+  // Get user categories
   Future<List<String>> getUserCategories() async {
     try {
-      final doc = await _db.collection('users').doc(userId).get();
-      if (doc.exists && doc.data()?['selectedCategories'] != null) {
-        return List<String>.from(doc.data()!['selectedCategories']);
+      final uid = userId;
+      if (uid == null) return [];
+
+      final doc = await _db.collection('users').doc(uid).get();
+
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        if (data.containsKey('categories')) {
+          return List<String>.from(data['categories'] as List);
+        }
       }
       return [];
     } catch (e) {
-      throw Exception('Failed to get categories: $e');
+      throw Exception('Failed to load categories: $e');
     }
   }
 }
