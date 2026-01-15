@@ -1,10 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:spendsense/firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:spendsense/screens/addTransaction.dart';
-import 'package:spendsense/theme/app_color_schema.dart';
+import 'package:spendsense/screens/add_transaction_page_updated.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
