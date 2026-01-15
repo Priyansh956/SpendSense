@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:spendsense/screens/add_transaction_page_updated.dart';
+import 'category_selection_page.dart';
 import 'package:spendsense/screens/signup.dart';
 
 class LoginPage extends StatefulWidget {
@@ -26,7 +26,7 @@ class _LoginPageState extends State<LoginPage> {
 
       Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => AddTransactionPage()),
+          MaterialPageRoute(builder: (context) => CategorySelectionPage()),
       );
     }
     on FirebaseAuthException catch(e){
