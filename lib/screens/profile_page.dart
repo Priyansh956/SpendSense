@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../providers/transaction_provider.dart';
 import '../models/category_model.dart';
-// import 'edit_categories_page.dart';
+import 'edit_categories_page.dart';
 
 /// Profile Page - User settings and category management
 /// 

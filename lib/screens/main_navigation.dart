@@ -19,6 +19,7 @@ class _MainNavigationState extends State<MainNavigation> {
   final List<Widget> _pages = [
     const HomePage(),
     const ExpenseSummaryPage(),
+    const Placeholder(), // Placeholder for FAB
     const CategoryWisePage(),
     const ProfilePage(), // Profile/Settings page
   ];
