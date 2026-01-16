@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:spendsense/screens/add_transaction_page_updated.dart';
+import 'package:spendsense/screens/home_page.dart';
 import '../models/transaction_model.dart';
 import '../models/category_model.dart';
 import '../providers/transaction_provider.dart';
@@ -66,22 +68,22 @@ class _ExpenseSummaryPageState extends State<ExpenseSummaryPage> {
       padding: const EdgeInsets.all(24.0),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.lightGrey,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.arrow_back_ios_new,
-                color: AppColors.white,
-                size: 20,
-              ),
-            ),
-          ),
-          const Spacer(),
+          // GestureDetector(
+          //   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => HomePage())),
+          //   child: Container(
+          //     padding: const EdgeInsets.all(12),
+          //     decoration: BoxDecoration(
+          //       color: AppColors.lightGrey,
+          //       borderRadius: BorderRadius.circular(12),
+          //     ),
+          //     child: const Icon(
+          //       Icons.arrow_back_ios_new,
+          //       color: AppColors.white,
+          //       size: 20,
+          //     ),
+          //   ),
+          // ),
+          // const Spacer(),
           CircleAvatar(
             radius: 24,
             backgroundColor: AppColors.neonGreen,
