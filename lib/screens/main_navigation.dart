@@ -4,6 +4,7 @@ import 'home_page.dart';
 import 'expense_summary_page.dart';
 import 'category_wise_page.dart';
 import 'package:spendsense/screens/add_transaction_page_updated.dart';
+import 'profile_page.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -18,9 +19,8 @@ class _MainNavigationState extends State<MainNavigation> {
   final List<Widget> _pages = [
     const HomePage(),
     const ExpenseSummaryPage(),
-    const Placeholder(), // Placeholder for FAB
     const CategoryWisePage(),
-    const Placeholder(), // Profile/Settings page
+    const ProfilePage(), // Profile/Settings page
   ];
 
   @override
