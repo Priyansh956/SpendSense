@@ -16,28 +16,53 @@ class _EditCategoriesPageState extends State<EditCategoriesPage> {
   final Set<String> _initialCategories = {};
   bool _isLoading = true;
   bool _isSaving = false;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _loadCategories();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadCategories();
+    });
   }
 
   Future<void> _loadCategories() async {
-    final provider = Provider.of<TransactionProvider>(context, listen: false);
-    await provider.loadUserCategories();
-    
-    setState(() {
-      _selectedCategories.addAll(provider.selectedCategories);
-      _initialCategories.addAll(provider.selectedCategories);
-      _isLoading = false;
-    });
+    try {
+      final provider = Provider.of<TransactionProvider>(context, listen: false);
+
+      // Add debug print
+      print('Loading categories...');
+
+      await provider.loadUserCategories();
+
+      // Add debug print
+      print('Loaded categories: ${provider.selectedCategories}');
+
+      if (mounted) {
+        setState(() {
+          _selectedCategories.addAll(provider.selectedCategories);
+          _initialCategories.addAll(provider.selectedCategories);
+          _isLoading = false;
+          _errorMessage = null;
+        });
+      }
+    } catch (e) {
+      // Add debug print
+      print('Error loading categories: $e');
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = e.toString();
+        });
+      }
+    }
   }
 
   bool get _hasChanges {
     if (_selectedCategories.length != _initialCategories.length) return true;
     return !_selectedCategories.containsAll(_initialCategories) ||
-           !_initialCategories.containsAll(_selectedCategories);
+        !_initialCategories.containsAll(_selectedCategories);
   }
 
   Future<void> _saveCategories() async {
@@ -63,7 +88,7 @@ class _EditCategoriesPageState extends State<EditCategoriesPage> {
     try {
       final provider = Provider.of<TransactionProvider>(context, listen: false);
       await provider.saveUserCategories(_selectedCategories.toList());
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -92,7 +117,7 @@ class _EditCategoriesPageState extends State<EditCategoriesPage> {
   Future<bool> _showRemovalWarning(Set<String> removedCategories) async {
     final categoryNames = removedCategories.map((id) {
       final cat = DefaultCategories.all.firstWhere(
-        (c) => c.id == id,
+            (c) => c.id == id,
         orElse: () => DefaultCategories.all.last,
       );
       return cat.name;
@@ -102,6 +127,9 @@ class _EditCategoriesPageState extends State<EditCategoriesPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.lightGrey,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
         title: const Text(
           'Remove Categories?',
           style: TextStyle(color: AppColors.white),
@@ -159,6 +187,9 @@ class _EditCategoriesPageState extends State<EditCategoriesPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.lightGrey,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
         title: const Text(
           'Discard Changes?',
           style: TextStyle(color: AppColors.white),
@@ -257,20 +288,86 @@ class _EditCategoriesPageState extends State<EditCategoriesPage> {
         ),
         body: _isLoading
             ? const Center(
-                child: CircularProgressIndicator(
-                  color: AppColors.neonGreen,
-                ),
-              )
+          child: CircularProgressIndicator(
+            color: AppColors.neonGreen,
+          ),
+        )
+            : _errorMessage != null
+            ? _buildErrorState()
             : Column(
-                children: [
-                  _buildHeader(),
-                  _buildQuickActions(),
-                  Expanded(
-                    child: _buildCategoryGrid(),
-                  ),
-                  _buildBottomBar(),
-                ],
+          children: [
+            _buildHeader(),
+            _buildQuickActions(),
+            Expanded(
+              child: _buildCategoryGrid(),
+            ),
+            _buildBottomBar(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 80,
+              color: AppColors.error,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Failed to load categories',
+              style: TextStyle(
+                color: AppColors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
               ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage ?? 'Unknown error',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _isLoading = true;
+                  _errorMessage = null;
+                });
+                _loadCategories();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.neonGreen,
+                foregroundColor: AppColors.black,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Retry',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -398,23 +495,23 @@ class _EditCategoriesPageState extends State<EditCategoriesPage> {
   }
 
   Widget _buildQuickActionButton(
-    String label,
-    IconData icon,
-    VoidCallback onTap,
-    bool isDisabled,
-  ) {
+      String label,
+      IconData icon,
+      VoidCallback onTap,
+      bool isDisabled,
+      ) {
     return Expanded(
       child: GestureDetector(
         onTap: isDisabled ? null : onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isDisabled 
+            color: isDisabled
                 ? AppColors.mediumGrey.withOpacity(0.3)
                 : AppColors.lightGrey,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isDisabled 
+              color: isDisabled
                   ? Colors.transparent
                   : AppColors.mediumGrey,
             ),
@@ -424,8 +521,8 @@ class _EditCategoriesPageState extends State<EditCategoriesPage> {
             children: [
               Icon(
                 icon,
-                color: isDisabled 
-                    ? AppColors.textTertiary 
+                color: isDisabled
+                    ? AppColors.textTertiary
                     : AppColors.neonGreen,
                 size: 18,
               ),
@@ -433,8 +530,8 @@ class _EditCategoriesPageState extends State<EditCategoriesPage> {
               Text(
                 label,
                 style: TextStyle(
-                  color: isDisabled 
-                      ? AppColors.textTertiary 
+                  color: isDisabled
+                      ? AppColors.textTertiary
                       : AppColors.white,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -477,16 +574,16 @@ class _EditCategoriesPageState extends State<EditCategoriesPage> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             decoration: BoxDecoration(
-              color: isSelected 
+              color: isSelected
                   ? category.color.withOpacity(0.2)
                   : AppColors.lightGrey,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isSelected 
-                    ? category.color 
+                color: isSelected
+                    ? category.color
                     : isRemoved
-                        ? AppColors.error.withOpacity(0.5)
-                        : Colors.transparent,
+                    ? AppColors.error.withOpacity(0.5)
+                    : Colors.transparent,
                 width: 2,
               ),
             ),
@@ -499,20 +596,20 @@ class _EditCategoriesPageState extends State<EditCategoriesPage> {
                       Icon(
                         category.icon,
                         size: 40,
-                        color: isSelected 
-                            ? category.color 
+                        color: isSelected
+                            ? category.color
                             : AppColors.textSecondary,
                       ),
                       const SizedBox(height: 12),
                       Text(
                         category.name,
                         style: TextStyle(
-                          color: isSelected 
-                              ? AppColors.white 
+                          color: isSelected
+                              ? AppColors.white
                               : AppColors.textSecondary,
                           fontSize: 16,
-                          fontWeight: isSelected 
-                              ? FontWeight.bold 
+                          fontWeight: isSelected
+                              ? FontWeight.bold
                               : FontWeight.normal,
                         ),
                         textAlign: TextAlign.center,
@@ -643,41 +740,37 @@ class _EditCategoriesPageState extends State<EditCategoriesPage> {
                   ),
                 if (_hasChanges) const SizedBox(width: 16),
                 Expanded(
-                  flex: _hasChanges ? 1 : 0,
-                  child: SizedBox(
-                    width: _hasChanges ? null : double.infinity,
-                    child: ElevatedButton(
-                      onPressed: (_isSaving || !_hasChanges) ? null : _saveCategories,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _hasChanges 
-                            ? AppColors.neonGreen 
-                            : AppColors.mediumGrey,
-                        foregroundColor: AppColors.black,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        elevation: 0,
+                  child: ElevatedButton(
+                    onPressed: (_isSaving || !_hasChanges) ? null : _saveCategories,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _hasChanges
+                          ? AppColors.neonGreen
+                          : AppColors.mediumGrey,
+                      foregroundColor: AppColors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                      child: _isSaving
-                          ? const SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: CircularProgressIndicator(
-                                color: AppColors.black,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : Text(
-                              _hasChanges ? 'Save Changes' : 'No Changes',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: _hasChanges 
-                                    ? AppColors.black 
-                                    : AppColors.textSecondary,
-                              ),
-                            ),
+                      elevation: 0,
+                    ),
+                    child: _isSaving
+                        ? const SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(
+                        color: AppColors.black,
+                        strokeWidth: 2,
+                      ),
+                    )
+                        : Text(
+                      _hasChanges ? 'Save Changes' : 'No Changes',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: _hasChanges
+                            ? AppColors.black
+                            : AppColors.textSecondary,
+                      ),
                     ),
                   ),
                 ),

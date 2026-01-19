@@ -5,19 +5,9 @@ import '../constants/app_colors.dart';
 import '../providers/transaction_provider.dart';
 import '../models/category_model.dart';
 import 'edit_categories_page.dart';
+import 'login.dart';
 
 /// Profile Page - User settings and category management
-/// 
-/// Features:
-/// - User profile display with email
-/// - Category management (edit selected categories)
-/// - Account settings (change password, sign out)
-/// - App information
-/// 
-/// This page integrates with:
-/// - FirebaseAuth for user management
-/// - TransactionProvider for category data
-/// - EditCategoriesPage for category editing
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -33,7 +23,9 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserData();
+    });
   }
 
   /// Load user categories from Firestore
@@ -88,9 +80,9 @@ class _ProfilePageState extends State<ProfilePage> {
       try {
         await FirebaseAuth.instance.signOut();
         if (mounted) {
-          Navigator.of(context).pushNamedAndRemoveUntil(
-            '/login',
-            (route) => false,
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const LoginPage()),
+                (route) => false,
           );
         }
       } catch (e) {
