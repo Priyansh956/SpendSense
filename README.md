@@ -1,4 +1,6 @@
-# 📘 SpendSense
+# 📘 SpendSense [![Flutter](https://img.shields.io/badge/Flutter-3.0+-02569B?logo=flutter)](https://flutter.dev)
+[![Firebase](https://img.shields.io/badge/Firebase-Enabled-FFCA28?logo=firebase)](https://firebase.google.com)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 SpendSense is a mobile expense tracking application built with Flutter. It allows users to log and categorize their income and expenses, view summaries, and manage personal finances with a clean, intuitive interface and Firebase backend.
 
@@ -62,3 +64,33 @@ This project follows a modular pattern using Flutter’s widget tree and Firebas
 <p align="center">
   <img src="images/profile_page_top_img.png" width="250">
 </p>
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Flutter SDK 3.0+
+- Firebase account
+- Android Studio / VS Code
+
+### Installation
+
+1. Clone the repo
+```bash
+   git clone https://github.com/Priyansh956/SpendSense.git
+   cd SpendSense
+```
+
+2. Install dependencies
+```bash
+   flutter pub get
+```
+
+3. Set up Firebase
+   - Create a Firebase project
+   - Add `google-services.json` to `android/app/`
+   - Add `GoogleService-Info.plist` to `ios/Runner/`
+
+4. Run the app
+```bash
+   flutter run
+```
