@@ -59,6 +59,26 @@ class FirestoreService {
     }
   }
 
+  // RESTORE transaction (for undo functionality)
+  Future<void> restoreTransaction(app.Transaction transaction) async {
+    try {
+      final uid = userId;
+      if (uid == null) throw Exception('User not logged in');
+
+      // Restore the transaction with its original ID
+      await _db
+          .collection('users')
+          .doc(uid)
+          .collection('transactions')
+          .doc(transaction.id)
+          .set(transaction.toMap());
+
+      print('Transaction restored successfully: ${transaction.id}');
+    } catch (e) {
+      throw Exception('Failed to restore transaction: $e');
+    }
+  }
+
   // Get Transactions Stream
   Stream<List<app.Transaction>> getTransactions() {
     final uid = userId;
@@ -98,7 +118,9 @@ class FirestoreService {
 
   // Get Transactions by Date Range
   Stream<List<app.Transaction>> getTransactionsByDateRange(
-      DateTime startDate, DateTime endDate) {
+      DateTime startDate,
+      DateTime endDate,
+      ) {
     final uid = userId;
     if (uid == null) return Stream.value([]);
 
@@ -123,10 +145,7 @@ class FirestoreService {
       final uid = userId;
       if (uid == null) throw Exception('User not logged in');
 
-      await _db
-          .collection('users')
-          .doc(uid)
-          .set({
+      await _db.collection('users').doc(uid).set({
         'categories': categories,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));

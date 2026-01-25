@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 import '../models/transaction_model.dart';
 import '../models/category_model.dart';
 import '../providers/transaction_provider.dart';
 import '../constants/app_colors.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../main.dart'; // 👈 for routeObserver
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -14,71 +16,105 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with RouteAware {
+  final GlobalKey<ScaffoldMessengerState> _messengerKey =
+  GlobalKey<ScaffoldMessengerState>();
+
   String _selectedFilter = 'All';
 
   @override
   void initState() {
     super.initState();
-    Provider.of<TransactionProvider>(context, listen: false).listenToTransactions();
+    Provider.of<TransactionProvider>(context, listen: false)
+        .listenToTransactions();
   }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(
+      this,
+      ModalRoute.of(context)! as PageRoute,
+    );
+  }
+
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  /// 🔑 THIS IS THE CRITICAL FIX
+  /// Called when another page is pushed on top of HomePage
+  @override
+  void didPushNext() {
+    _messengerKey.currentState?.removeCurrentSnackBar();
+  }
+
+  // ---------------- FILTERING ----------------
 
   List<Transaction> _getFilteredTransactions(List<Transaction> transactions) {
     final now = DateTime.now();
-    
+
     switch (_selectedFilter) {
       case 'Today':
-        return transactions.where((t) {
-          return t.date.year == now.year &&
-              t.date.month == now.month &&
-              t.date.day == now.day;
-        }).toList();
+        return transactions.where((t) =>
+        t.date.year == now.year &&
+            t.date.month == now.month &&
+            t.date.day == now.day).toList();
+
       case 'This Week':
         final weekStart = now.subtract(Duration(days: now.weekday - 1));
         return transactions.where((t) => t.date.isAfter(weekStart)).toList();
+
       case 'This Month':
-        return transactions.where((t) {
-          return t.date.year == now.year && t.date.month == now.month;
-        }).toList();
+        return transactions.where((t) =>
+        t.date.year == now.year && t.date.month == now.month).toList();
+
       default:
         return transactions;
     }
   }
 
+  // ---------------- UI ----------------
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    
-    return Scaffold(
-      backgroundColor: AppColors.black,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(user),
-            _buildFilterChips(),
-            Expanded(
-              child: Consumer<TransactionProvider>(
-                builder: (context, provider, child) {
-                  final filteredTransactions = 
-                      _getFilteredTransactions(provider.transactions);
-                  
-                  if (provider.isLoading) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.neonGreen,
-                      ),
-                    );
-                  }
 
-                  if (filteredTransactions.isEmpty) {
-                    return _buildEmptyState();
-                  }
+    return ScaffoldMessenger(
+      key: _messengerKey,
+      child: Scaffold(
+        backgroundColor: AppColors.black,
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(user),
+              _buildFilterChips(),
+              Expanded(
+                child: Consumer<TransactionProvider>(
+                  builder: (_, provider, __) {
+                    if (provider.isLoading) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.neonGreen,
+                        ),
+                      );
+                    }
 
-                  return _buildTransactionList(filteredTransactions);
-                },
+                    final filtered =
+                    _getFilteredTransactions(provider.transactions);
+
+                    if (filtered.isEmpty) {
+                      return _buildEmptyState();
+                    }
+
+                    return _buildTransactionList(filtered);
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -86,7 +122,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildHeader(User? user) {
     return Padding(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.all(24),
       child: Row(
         children: [
           GestureDetector(
@@ -100,7 +136,6 @@ class _HomePageState extends State<HomePage> {
                 user?.email?.substring(0, 1).toUpperCase() ?? 'U',
                 style: const TextStyle(
                   color: AppColors.black,
-                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -108,14 +143,13 @@ class _HomePageState extends State<HomePage> {
           ),
           const Spacer(),
           const Text(
-            'Your',
+            'Your ',
             style: TextStyle(
               color: AppColors.white,
               fontSize: 28,
               fontWeight: FontWeight.w300,
             ),
           ),
-          const SizedBox(width: 8),
           const Text(
             'Spendings',
             style: TextStyle(
@@ -131,35 +165,31 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildFilterChips() {
     final filters = ['All', 'Today', 'This Week', 'This Month'];
-    
+
     return SizedBox(
       height: 50,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 24),
         itemCount: filters.length,
-        itemBuilder: (context, index) {
+        itemBuilder: (_, index) {
           final filter = filters[index];
-          final isSelected = _selectedFilter == filter;
-          
+          final selected = _selectedFilter == filter;
+
           return Padding(
             padding: const EdgeInsets.only(right: 12),
             child: ChoiceChip(
               label: Text(filter),
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() {
-                  _selectedFilter = filter;
-                });
-              },
-              backgroundColor: AppColors.lightGrey,
+              selected: selected,
+              onSelected: (_) =>
+                  setState(() => _selectedFilter = filter),
               selectedColor: AppColors.neonGreen,
+              backgroundColor: AppColors.lightGrey,
               labelStyle: TextStyle(
-                color: isSelected ? AppColors.black : AppColors.white,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: selected ? AppColors.black : AppColors.white,
+                fontWeight:
+                selected ? FontWeight.bold : FontWeight.normal,
               ),
-              side: BorderSide.none,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),
           );
         },
@@ -167,32 +197,32 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // ---------------- LIST ----------------
+
   Widget _buildTransactionList(List<Transaction> transactions) {
-    final groupedTransactions = _groupTransactionsByDate(transactions);
-    
+    final grouped = _groupTransactionsByDate(transactions);
+
     return ListView.builder(
       padding: const EdgeInsets.all(24),
-      itemCount: groupedTransactions.length,
-      itemBuilder: (context, index) {
-        final date = groupedTransactions.keys.elementAt(index);
-        final dayTransactions = groupedTransactions[date]!;
-        
+      itemCount: grouped.length,
+      itemBuilder: (_, index) {
+        final dateKey = grouped.keys.elementAt(index);
+        final dayTxns = grouped[dateKey]!;
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.only(bottom: 12, top: 12),
+              padding: const EdgeInsets.symmetric(vertical: 12),
               child: Text(
-                _formatDate(date),
-                style: TextStyle(
+                _formatDate(dateKey),
+                style: const TextStyle(
                   color: AppColors.textSecondary,
-                  fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
               ),
             ),
-            ...dayTransactions.map((transaction) => 
-                _buildTransactionCard(transaction)),
+            ...dayTxns.map(_buildSwipeableTransactionCard),
           ],
         );
       },
@@ -201,40 +231,165 @@ class _HomePageState extends State<HomePage> {
 
   Map<String, List<Transaction>> _groupTransactionsByDate(
       List<Transaction> transactions) {
-    final Map<String, List<Transaction>> grouped = {};
-    
-    for (var transaction in transactions) {
-      final dateKey = DateFormat('yyyy-MM-dd').format(transaction.date);
-      grouped.putIfAbsent(dateKey, () => []);
-      grouped[dateKey]!.add(transaction);
+    final Map<String, List<Transaction>> map = {};
+
+    for (final t in transactions) {
+      final key = DateFormat('yyyy-MM-dd').format(t.date);
+      map.putIfAbsent(key, () => []);
+      map[key]!.add(t);
     }
-    
-    return grouped;
+
+    return map;
   }
 
-  String _formatDate(String dateKey) {
-    final date = DateTime.parse(dateKey);
+  String _formatDate(String key) {
+    final date = DateTime.parse(key);
     final now = DateTime.now();
-    
-    if (date.year == now.year && 
-        date.month == now.month && 
-        date.day == now.day) {
-      return 'Today';
-    } else if (date.year == now.year && 
-               date.month == now.month && 
-               date.day == now.day - 1) {
+
+    if (DateUtils.isSameDay(date, now)) return 'Today';
+    if (DateUtils.isSameDay(
+        date, now.subtract(const Duration(days: 1)))) {
       return 'Yesterday';
-    } else {
-      return DateFormat('dd MMM, yyyy').format(date);
     }
+
+    return DateFormat('dd MMM, yyyy').format(date);
   }
 
-  Widget _buildTransactionCard(Transaction transaction) {
+  // ---------------- DELETE + SNACKBAR ----------------
+
+  Widget _buildSwipeableTransactionCard(Transaction transaction) {
     final category = DefaultCategories.all.firstWhere(
-      (c) => c.id == transaction.category,
+          (c) => c.id == transaction.category,
       orElse: () => DefaultCategories.all.last,
     );
 
+    return Dismissible(
+      key: Key(transaction.id),
+      direction: DismissDirection.endToStart,
+
+      // 🔴 RED GRADIENT DELETE BACKGROUND
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              AppColors.black,
+              AppColors.error.withOpacity(0.8),
+              AppColors.error,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        alignment: Alignment.centerRight,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(
+              Icons.delete_outline,
+              color: AppColors.white,
+              size: 28,
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Delete',
+              style: TextStyle(
+                color: AppColors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+
+      // ❗ Optional confirmation dialog (same as earlier)
+      confirmDismiss: (_) async {
+        return await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            backgroundColor: AppColors.darkGrey,
+            title: const Text(
+              'Delete transaction?',
+              style: TextStyle(color: AppColors.white),
+            ),
+            content: Text(
+              transaction.title,
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.error,
+                ),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        ) ??
+            false;
+      },
+
+      // ✅ DELETE + SIMPLE SNACKBAR
+      onDismissed: (_) async {
+        final provider =
+        Provider.of<TransactionProvider>(context, listen: false);
+
+        await provider.deleteTransaction(transaction.id);
+
+        _messengerKey.currentState?.showSnackBar(
+          const SnackBar(
+            duration: Duration(seconds: 2),
+            backgroundColor: AppColors.darkGrey,
+            behavior: SnackBarBehavior.floating,
+            content: Text(
+              'Transaction deleted',
+              style: TextStyle(color: AppColors.white),
+            ),
+          ),
+        );
+      },
+
+      child: _buildTransactionCard(transaction, category),
+    );
+  }
+
+  Widget _buildDeleteDialog(Transaction transaction) {
+    return AlertDialog(
+      backgroundColor: AppColors.darkGrey,
+      title: const Text(
+        'Delete Transaction?',
+        style: TextStyle(color: AppColors.white),
+      ),
+      content: Text(
+        transaction.title,
+        style: const TextStyle(color: AppColors.textSecondary),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, true),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.error,
+          ),
+          child: const Text('Delete'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTransactionCard(
+      Transaction transaction, Category category) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -244,49 +399,23 @@ class _HomePageState extends State<HomePage> {
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: category.color.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              category.icon,
-              color: category.color,
-              size: 24,
-            ),
-          ),
+          Icon(category.icon, color: category.color),
           const SizedBox(width: 16),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  transaction.title,
-                  style: const TextStyle(
-                    color: AppColors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  category.name,
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
+            child: Text(
+              transaction.title,
+              style: const TextStyle(
+                color: AppColors.white,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           Text(
             '${transaction.type == TransactionType.expense ? '-' : '+'} ₹${transaction.amount.toStringAsFixed(0)}',
             style: TextStyle(
-              color: transaction.type == TransactionType.expense 
-                  ? AppColors.error 
+              color: transaction.type == TransactionType.expense
+                  ? AppColors.error
                   : AppColors.success,
-              fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -296,33 +425,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.receipt_long_outlined,
-            size: 80,
-            color: AppColors.textTertiary,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No transactions yet',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Tap + to add your first transaction',
-            style: TextStyle(
-              color: AppColors.textTertiary,
-              fontSize: 14,
-            ),
-          ),
-        ],
+    return const Center(
+      child: Text(
+        'No transactions yet',
+        style: TextStyle(color: AppColors.textSecondary),
       ),
     );
   }

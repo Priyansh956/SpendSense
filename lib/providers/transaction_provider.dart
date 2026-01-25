@@ -24,7 +24,7 @@ class TransactionProvider with ChangeNotifier {
   Future<void> addTransaction(Transaction transaction) async {
     _isLoading = true;
     notifyListeners();
-    
+
     try {
       await _firestoreService.addTransaction(transaction);
     } catch (e) {
@@ -39,7 +39,7 @@ class TransactionProvider with ChangeNotifier {
   Future<void> updateTransaction(Transaction transaction) async {
     _isLoading = true;
     notifyListeners();
-    
+
     try {
       await _firestoreService.updateTransaction(transaction);
     } catch (e) {
@@ -50,18 +50,25 @@ class TransactionProvider with ChangeNotifier {
     }
   }
 
-  // Delete transaction
+  // Delete transaction - UPDATED (removed loading state for swipe responsiveness)
   Future<void> deleteTransaction(String id) async {
-    _isLoading = true;
-    notifyListeners();
-    
     try {
       await _firestoreService.deleteTransaction(id);
+      // The stream listener will automatically update the UI
     } catch (e) {
+      print('Error in provider deleteTransaction: $e');
       rethrow;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
+    }
+  }
+
+  // Restore transaction (for undo) - NEW METHOD
+  Future<void> restoreTransaction(Transaction transaction) async {
+    try {
+      await _firestoreService.restoreTransaction(transaction);
+      // The stream listener will automatically update the UI
+    } catch (e) {
+      print('Error in provider restoreTransaction: $e');
+      rethrow;
     }
   }
 
@@ -97,10 +104,10 @@ class TransactionProvider with ChangeNotifier {
   Map<String, double> getCategoryBreakdown(DateTime start, DateTime end) {
     final filtered = getTransactionsByDateRange(start, end)
         .where((t) => t.type == TransactionType.expense);
-    
+
     final Map<String, double> breakdown = {};
     for (var transaction in filtered) {
-      breakdown[transaction.category] = 
+      breakdown[transaction.category] =
           (breakdown[transaction.category] ?? 0) + transaction.amount;
     }
     return breakdown;
@@ -110,7 +117,7 @@ class TransactionProvider with ChangeNotifier {
   Future<void> loadUserCategories() async {
     _isLoading = true;
     notifyListeners();
-    
+
     try {
       _selectedCategories = await _firestoreService.getUserCategories();
     } catch (e) {
@@ -125,7 +132,7 @@ class TransactionProvider with ChangeNotifier {
   Future<void> saveUserCategories(List<String> categories) async {
     _isLoading = true;
     notifyListeners();
-    
+
     try {
       await _firestoreService.saveUserCategories(categories);
       _selectedCategories = categories;
