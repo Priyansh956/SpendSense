@@ -183,24 +183,6 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'User ID',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              user?.uid ?? 'No ID',
-              style: const TextStyle(
-                color: AppColors.white,
-                fontSize: 11,
-              ),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 16),
-            const Text(
               'Account Created',
               style: TextStyle(
                 color: AppColors.textSecondary,

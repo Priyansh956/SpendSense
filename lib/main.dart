@@ -8,6 +8,7 @@ import 'screens/main_navigation.dart';
 import 'screens/category_selection_page.dart';
 import 'screens/login.dart';
 import 'constants/app_colors.dart';
+import './screens/profile_page.dart';
 
 // ✅ REQUIRED FOR ROUTE-AWARE SNACKBARS
 final RouteObserver<PageRoute> routeObserver =
@@ -49,6 +50,7 @@ class MyApp extends StatelessWidget {
         routes: {
           '/home': (context) => const MainNavigation(),
           '/categories': (context) => const CategorySelectionPage(),
+          '/profile': (context) => const ProfilePage(),
         },
       ),
     );
