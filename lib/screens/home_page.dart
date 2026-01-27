@@ -64,8 +64,8 @@ class _HomePageState extends State<HomePage> with RouteAware {
         return transactions.where((t) => t.date.isAfter(weekStart)).toList();
 
       case 'This Month':
-        return transactions.where(
-                (t) => t.date.year == now.year && t.date.month == now.month).toList();
+        return transactions.where((t) =>
+        t.date.year == now.year && t.date.month == now.month).toList();
 
       default:
         return transactions;
@@ -241,15 +241,14 @@ class _HomePageState extends State<HomePage> with RouteAware {
     final now = DateTime.now();
 
     if (DateUtils.isSameDay(date, now)) return 'Today';
-    if (DateUtils.isSameDay(
-        date, now.subtract(const Duration(days: 1)))) {
+    if (DateUtils.isSameDay(date, now.subtract(const Duration(days: 1)))) {
       return 'Yesterday';
     }
 
     return DateFormat('dd MMM, yyyy').format(date);
   }
 
-  // ---------------- CARD (SWIPE + TAP) ----------------
+  // ---------------- CARD (SWIPE EDIT + DELETE) ----------------
 
   Widget _buildSwipeableTransactionCard(Transaction transaction) {
     final category = DefaultCategories.all.firstWhere(
@@ -259,10 +258,29 @@ class _HomePageState extends State<HomePage> with RouteAware {
 
     return Dismissible(
       key: Key(transaction.id),
-      direction: DismissDirection.endToStart,
-      background: _buildDeleteBackground(),
-      confirmDismiss: (_) => _confirmDelete(transaction),
+      direction: DismissDirection.horizontal,
+
+      // 👉 EDIT
+      background: _buildEditBackground(),
+
+      // 👈 DELETE
+      secondaryBackground: _buildDeleteBackground(),
+
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          await _editTransaction(transaction);
+          return false; // snap back
+        }
+
+        if (direction == DismissDirection.endToStart) {
+          return await _confirmDelete(transaction);
+        }
+
+        return false;
+      },
+
       onDismissed: (_) => _deleteTransaction(transaction),
+
       child: _buildTransactionCard(transaction, category),
     );
   }
@@ -314,6 +332,65 @@ class _HomePageState extends State<HomePage> with RouteAware {
     );
   }
 
+  // ---------------- EDIT ----------------
+
+  Widget _buildEditBackground() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      alignment: Alignment.centerLeft,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.success,
+            AppColors.neonGreen.withOpacity(0.8),
+            AppColors.neonGreen,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: const [
+          Icon(Icons.edit, color: AppColors.black),
+          SizedBox(width: 8),
+          Text(
+            'Edit',
+            style: TextStyle(
+              color: AppColors.black,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _editTransaction(Transaction transaction) async {
+    final updated = await Navigator.push<Transaction>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DetailedView(transaction: transaction),
+      ),
+    );
+
+    if (updated != null) {
+      final provider =
+      Provider.of<TransactionProvider>(context, listen: false);
+
+      await provider.updateTransaction(updated);
+
+      _messengerKey.currentState?.showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.darkGrey,
+          content: Text(
+            'Transaction updated',
+            style: TextStyle(color: AppColors.white),
+          ),
+        ),
+      );
+    }
+  }
+
   // ---------------- DELETE ----------------
 
   Widget _buildDeleteBackground() {
@@ -340,10 +417,14 @@ class _HomePageState extends State<HomePage> with RouteAware {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.darkGrey,
-        title: const Text('Delete transaction?',
-            style: TextStyle(color: AppColors.white)),
-        content: Text(transaction.title,
-            style: const TextStyle(color: AppColors.textSecondary)),
+        title: const Text(
+          'Delete transaction?',
+          style: TextStyle(color: AppColors.white),
+        ),
+        content: Text(
+          transaction.title,
+          style: const TextStyle(color: AppColors.textSecondary),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -371,8 +452,10 @@ class _HomePageState extends State<HomePage> with RouteAware {
     _messengerKey.currentState?.showSnackBar(
       const SnackBar(
         backgroundColor: AppColors.darkGrey,
-        content: Text('Transaction deleted',
-            style: TextStyle(color: AppColors.white)),
+        content: Text(
+          'Transaction deleted',
+          style: TextStyle(color: AppColors.white),
+        ),
       ),
     );
   }

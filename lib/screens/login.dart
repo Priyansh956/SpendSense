@@ -82,8 +82,8 @@ class _LoginPageState extends State<LoginPage> {
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     image: DecorationImage(
-                      // image: AssetImage('images/loginImage.jpg'),
-                      image: NetworkImage('https://i.gifer.com/4Cb2.gif'),
+                      image: AssetImage('images/loginImage.jpg'),
+                      // image: NetworkImage('https://i.gifer.com/4Cb2.gif'),
                       fit: BoxFit.cover,
 
                     ),
