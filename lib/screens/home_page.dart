@@ -121,18 +121,14 @@ class _HomePageState extends State<HomePage> with RouteAware {
       padding: const EdgeInsets.all(24),
       child: Row(
         children: [
-          InkWell(
-            borderRadius: BorderRadius.circular(50),
-            onTap: () => Navigator.pushNamed(context, '/profile'),
-            child: CircleAvatar(
-              radius: 24,
-              backgroundColor: AppColors.neonGreen,
-              child: Text(
-                user?.email?.substring(0, 1).toUpperCase() ?? 'U',
-                style: const TextStyle(
-                  color: AppColors.black,
-                  fontWeight: FontWeight.bold,
-                ),
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: AppColors.neonGreen,
+            child: Text(
+              user?.email?.substring(0, 1).toUpperCase() ?? 'U',
+              style: const TextStyle(
+                color: AppColors.black,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
@@ -260,10 +256,10 @@ class _HomePageState extends State<HomePage> with RouteAware {
       key: Key(transaction.id),
       direction: DismissDirection.horizontal,
 
-      // 👉 EDIT
+      // 👉 EDIT (swipe left to right)
       background: _buildEditBackground(),
 
-      // 👈 DELETE
+      // 👈 DELETE (swipe right to left)
       secondaryBackground: _buildDeleteBackground(),
 
       confirmDismiss: (direction) async {
@@ -287,47 +283,36 @@ class _HomePageState extends State<HomePage> with RouteAware {
 
   Widget _buildTransactionCard(
       Transaction transaction, Category category) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => DetailedView(transaction: transaction),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.lightGrey,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Icon(category.icon, color: category.color),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              transaction.title,
+              style: const TextStyle(
+                color: AppColors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.lightGrey,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Icon(category.icon, color: category.color),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                transaction.title,
-                style: const TextStyle(
-                  color: AppColors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+          Text(
+            '${transaction.type == TransactionType.expense ? '-' : '+'} ₹${transaction.amount.toStringAsFixed(0)}',
+            style: TextStyle(
+              color: transaction.type == TransactionType.expense
+                  ? AppColors.error
+                  : AppColors.success,
+              fontWeight: FontWeight.bold,
             ),
-            Text(
-              '${transaction.type == TransactionType.expense ? '-' : '+'} ₹${transaction.amount.toStringAsFixed(0)}',
-              style: TextStyle(
-                color: transaction.type == TransactionType.expense
-                    ? AppColors.error
-                    : AppColors.success,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
