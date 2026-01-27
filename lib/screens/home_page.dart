@@ -7,7 +7,8 @@ import '../models/transaction_model.dart';
 import '../models/category_model.dart';
 import '../providers/transaction_provider.dart';
 import '../constants/app_colors.dart';
-import '../main.dart'; // 👈 for routeObserver
+import '../screens/detailed_view.dart';
+import '../main.dart'; // routeObserver
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -32,10 +33,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    routeObserver.subscribe(
-      this,
-      ModalRoute.of(context)! as PageRoute,
-    );
+    routeObserver.subscribe(this, ModalRoute.of(context)! as PageRoute);
   }
 
   @override
@@ -44,8 +42,6 @@ class _HomePageState extends State<HomePage> with RouteAware {
     super.dispose();
   }
 
-  /// 🔑 THIS IS THE CRITICAL FIX
-  /// Called when another page is pushed on top of HomePage
   @override
   void didPushNext() {
     _messengerKey.currentState?.removeCurrentSnackBar();
@@ -68,8 +64,8 @@ class _HomePageState extends State<HomePage> with RouteAware {
         return transactions.where((t) => t.date.isAfter(weekStart)).toList();
 
       case 'This Month':
-        return transactions.where((t) =>
-        t.date.year == now.year && t.date.month == now.month).toList();
+        return transactions.where(
+                (t) => t.date.year == now.year && t.date.month == now.month).toList();
 
       default:
         return transactions;
@@ -125,10 +121,9 @@ class _HomePageState extends State<HomePage> with RouteAware {
       padding: const EdgeInsets.all(24),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () {
-              Navigator.pushNamed(context, '/profile');
-            },
+          InkWell(
+            borderRadius: BorderRadius.circular(50),
+            onTap: () => Navigator.pushNamed(context, '/profile'),
             child: CircleAvatar(
               radius: 24,
               backgroundColor: AppColors.neonGreen,
@@ -181,8 +176,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
             child: ChoiceChip(
               label: Text(filter),
               selected: selected,
-              onSelected: (_) =>
-                  setState(() => _selectedFilter = filter),
+              onSelected: (_) => setState(() => _selectedFilter = filter),
               selectedColor: AppColors.neonGreen,
               backgroundColor: AppColors.lightGrey,
               labelStyle: TextStyle(
@@ -255,7 +249,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
     return DateFormat('dd MMM, yyyy').format(date);
   }
 
-  // ---------------- DELETE + SNACKBAR ----------------
+  // ---------------- CARD (SWIPE + TAP) ----------------
 
   Widget _buildSwipeableTransactionCard(Transaction transaction) {
     final category = DefaultCategories.all.firstWhere(
@@ -266,160 +260,119 @@ class _HomePageState extends State<HomePage> with RouteAware {
     return Dismissible(
       key: Key(transaction.id),
       direction: DismissDirection.endToStart,
-
-      // 🔴 RED GRADIENT DELETE BACKGROUND
-      background: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [
-              AppColors.black,
-              AppColors.error.withOpacity(0.8),
-              AppColors.error,
-            ],
-          ),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        alignment: Alignment.centerRight,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(
-              Icons.delete_outline,
-              color: AppColors.white,
-              size: 28,
-            ),
-            SizedBox(height: 4),
-            Text(
-              'Delete',
-              style: TextStyle(
-                color: AppColors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-
-      // ❗ Optional confirmation dialog (same as earlier)
-      confirmDismiss: (_) async {
-        return await showDialog<bool>(
-          context: context,
-          builder: (_) => AlertDialog(
-            backgroundColor: AppColors.darkGrey,
-            title: const Text(
-              'Delete transaction?',
-              style: TextStyle(color: AppColors.white),
-            ),
-            content: Text(
-              transaction.title,
-              style: const TextStyle(color: AppColors.textSecondary),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.error,
-                ),
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Delete'),
-              ),
-            ],
-          ),
-        ) ??
-            false;
-      },
-
-      // ✅ DELETE + SIMPLE SNACKBAR
-      onDismissed: (_) async {
-        final provider =
-        Provider.of<TransactionProvider>(context, listen: false);
-
-        await provider.deleteTransaction(transaction.id);
-
-        _messengerKey.currentState?.showSnackBar(
-          const SnackBar(
-            duration: Duration(seconds: 2),
-            backgroundColor: AppColors.darkGrey,
-            behavior: SnackBarBehavior.floating,
-            content: Text(
-              'Transaction deleted',
-              style: TextStyle(color: AppColors.white),
-            ),
-          ),
-        );
-      },
-
+      background: _buildDeleteBackground(),
+      confirmDismiss: (_) => _confirmDelete(transaction),
+      onDismissed: (_) => _deleteTransaction(transaction),
       child: _buildTransactionCard(transaction, category),
-    );
-  }
-
-  Widget _buildDeleteDialog(Transaction transaction) {
-    return AlertDialog(
-      backgroundColor: AppColors.darkGrey,
-      title: const Text(
-        'Delete Transaction?',
-        style: TextStyle(color: AppColors.white),
-      ),
-      content: Text(
-        transaction.title,
-        style: const TextStyle(color: AppColors.textSecondary),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () => Navigator.pop(context, true),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.error,
-          ),
-          child: const Text('Delete'),
-        ),
-      ],
     );
   }
 
   Widget _buildTransactionCard(
       Transaction transaction, Category category) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.lightGrey,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Icon(category.icon, color: category.color),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              transaction.title,
-              style: const TextStyle(
-                color: AppColors.white,
-                fontWeight: FontWeight.w600,
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DetailedView(transaction: transaction),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.lightGrey,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Icon(category.icon, color: category.color),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                transaction.title,
+                style: const TextStyle(
+                  color: AppColors.white,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ),
-          Text(
-            '${transaction.type == TransactionType.expense ? '-' : '+'} ₹${transaction.amount.toStringAsFixed(0)}',
-            style: TextStyle(
-              color: transaction.type == TransactionType.expense
-                  ? AppColors.error
-                  : AppColors.success,
-              fontWeight: FontWeight.bold,
+            Text(
+              '${transaction.type == TransactionType.expense ? '-' : '+'} ₹${transaction.amount.toStringAsFixed(0)}',
+              style: TextStyle(
+                color: transaction.type == TransactionType.expense
+                    ? AppColors.error
+                    : AppColors.success,
+                fontWeight: FontWeight.bold,
+              ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ---------------- DELETE ----------------
+
+  Widget _buildDeleteBackground() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      alignment: Alignment.centerRight,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.black,
+            AppColors.error.withOpacity(0.8),
+            AppColors.error,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: const Icon(Icons.delete_outline, color: AppColors.white),
+    );
+  }
+
+  Future<bool> _confirmDelete(Transaction transaction) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.darkGrey,
+        title: const Text('Delete transaction?',
+            style: TextStyle(color: AppColors.white)),
+        content: Text(transaction.title,
+            style: const TextStyle(color: AppColors.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
           ),
         ],
+      ),
+    ) ??
+        false;
+  }
+
+  Future<void> _deleteTransaction(Transaction transaction) async {
+    final provider =
+    Provider.of<TransactionProvider>(context, listen: false);
+
+    await provider.deleteTransaction(transaction.id);
+
+    _messengerKey.currentState?.showSnackBar(
+      const SnackBar(
+        backgroundColor: AppColors.darkGrey,
+        content: Text('Transaction deleted',
+            style: TextStyle(color: AppColors.white)),
       ),
     );
   }
