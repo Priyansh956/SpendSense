@@ -652,13 +652,6 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           const Divider(color: AppColors.mediumGrey, height: 1),
           _buildSettingsTile(
-            icon: Icons.lock_outline,
-            title: 'Change Password',
-            subtitle: 'Reset your password via email',
-            onTap: _changePassword,
-          ),
-          const Divider(color: AppColors.mediumGrey, height: 1),
-          _buildSettingsTile(
             icon: Icons.logout,
             title: 'Sign Out',
             subtitle: 'Sign out of your account',

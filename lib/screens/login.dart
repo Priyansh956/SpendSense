@@ -16,6 +16,8 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final int minLength = 7;
+  bool isValid = false;
 
   void loginCheck() async {
     try {
@@ -45,6 +47,17 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _passwordController.addListener(() {
+      setState(() {
+        isValid = _passwordController.text.length >= minLength;
+      });
+    });
+  }
+
+
+  @override
   Widget build(BuildContext context) {
     final bool keyboardOpen =
         MediaQuery.of(context).viewInsets.bottom > 0;
@@ -69,8 +82,10 @@ class _LoginPageState extends State<LoginPage> {
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     image: DecorationImage(
-                      image: AssetImage('images/loginImage.jpg'),
+                      // image: AssetImage('images/loginImage.jpg'),
+                      image: NetworkImage('https://i.gifer.com/4Cb2.gif'),
                       fit: BoxFit.cover,
+
                     ),
                   ),
                 ),
@@ -145,11 +160,18 @@ class _LoginPageState extends State<LoginPage> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                      isValid ? Colors.lightGreenAccent : Colors.grey,
+                      foregroundColor: Colors.black, // better contrast
+                    ),
+                    onPressed: isValid
+                        ? () {
                       if (_formKey.currentState!.validate()) {
                         loginCheck();
                       }
-                    },
+                    }
+                        : null,
                     child: const Text("Login"),
                   ),
                 ),
