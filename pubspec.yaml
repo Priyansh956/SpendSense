@@ -65,7 +65,7 @@ dev_dependencies:
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "images/icon.png"
+  image_path: "images/newLogo.png"
   min_sdk_android: 21 # android min sdk min:16, default 21
 
 flutter_native_splash:
@@ -73,7 +73,7 @@ flutter_native_splash:
   ios: true
 
   color: "#D64151"
-  image: images/icon.png
+  image: images/newLogo.png
 
 # The following section is specific to Flutter packages.
 flutter:
