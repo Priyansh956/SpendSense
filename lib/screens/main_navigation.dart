@@ -5,6 +5,7 @@ import 'expense_summary_page.dart';
 import 'category_wise_page.dart';
 import 'package:spendsense/screens/add_transaction_page_updated.dart';
 import 'profile_page.dart';
+import 'add_split_expense_screen.dart'; // Added the Split Expense screen import
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -15,7 +16,7 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
-  
+
   final List<Widget> _pages = [
     const HomePage(),
     const ExpenseSummaryPage(),
@@ -32,20 +33,7 @@ class _MainNavigationState extends State<MainNavigation> {
         children: _pages,
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const AddTransactionPage(),
-            ),
-          );
-          
-          if (result == true) {
-            setState(() {
-              _currentIndex = 0;
-            });
-          }
-        },
+        onPressed: () => _showAddOptions(context), // Triggers the new bottom sheet
         backgroundColor: AppColors.neonGreen,
         elevation: 8,
         child: const Icon(
@@ -79,7 +67,7 @@ class _MainNavigationState extends State<MainNavigation> {
 
   Widget _buildNavItem(IconData outlinedIcon, IconData filledIcon, int index) {
     final isSelected = _currentIndex == index;
-    
+
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -89,8 +77,8 @@ class _MainNavigationState extends State<MainNavigation> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected 
-              ? AppColors.neonGreen.withOpacity(0.2) 
+          color: isSelected
+              ? AppColors.neonGreen.withOpacity(0.2)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
@@ -98,6 +86,61 @@ class _MainNavigationState extends State<MainNavigation> {
           isSelected ? filledIcon : outlinedIcon,
           color: isSelected ? AppColors.neonGreen : AppColors.textSecondary,
           size: 28,
+        ),
+      ),
+    );
+  }
+
+  // --- NEW BOTTOM SHEET MENU ---
+  void _showAddOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.darkGrey,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.receipt_long, color: AppColors.neonGreen),
+              title: const Text('Add Transaction',
+                  style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold)),
+              onTap: () async {
+                Navigator.pop(context); // Close the bottom sheet first
+
+                // Navigate to the transaction page and wait for result
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AddTransactionPage()),
+                );
+
+                // If transaction was successfully added, jump to the Home tab
+                if (result == true && mounted) {
+                  setState(() {
+                    _currentIndex = 0;
+                  });
+                }
+              },
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.group, color: AppColors.neonGreen),
+              title: const Text('Split Expense',
+                  style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold)),
+              onTap: () {
+                Navigator.pop(context); // Close the bottom sheet
+
+                // Navigate to the new split expense screen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AddSplitExpenseScreen()),
+                );
+              },
+            ),
+          ],
         ),
       ),
     );

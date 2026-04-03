@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'providers/splitwise_provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,6 +10,7 @@ import 'screens/category_selection_page.dart';
 import 'screens/login.dart';
 import 'constants/app_colors.dart';
 import './screens/profile_page.dart';
+import 'screens/friends_list_screen.dart';
 
 // ✅ REQUIRED FOR ROUTE-AWARE SNACKBARS
 final RouteObserver<PageRoute> routeObserver =
@@ -28,6 +30,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => TransactionProvider()),
+        ChangeNotifierProvider(create: (_) => SplitwiseProvider()..startListening()),
       ],
       child: MaterialApp(
         title: 'SpendSense',
@@ -51,6 +54,7 @@ class MyApp extends StatelessWidget {
           '/home': (context) => const MainNavigation(),
           '/categories': (context) => const CategorySelectionPage(),
           '/profile': (context) => const ProfilePage(),
+          '/friends': (context) => const FriendsListScreen(),
         },
       ),
     );

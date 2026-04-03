@@ -9,6 +9,8 @@ import '../providers/transaction_provider.dart';
 import '../constants/app_colors.dart';
 import '../screens/detailed_view.dart';
 import '../main.dart'; // routeObserver
+import '../screens/friends_list_screen.dart';
+import '../providers/splitwise_provider.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -86,6 +88,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
           child: Column(
             children: [
               _buildHeader(user),
+              _buildSplitExpenseCard(context),
               _buildFilterChips(),
               Expanded(
                 child: Consumer<TransactionProvider>(
@@ -150,6 +153,69 @@ class _HomePageState extends State<HomePage> with RouteAware {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+
+  Widget _buildSplitExpenseCard(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const FriendsListScreen()),
+      ),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppColors.lightGrey,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.neonGreen.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.neonGreen.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.group, color: AppColors.neonGreen, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Split Expenses',
+                      style: TextStyle(
+                          color: AppColors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16)),
+                  Text('Manage friends & shared costs',
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                ],
+              ),
+            ),
+            Consumer<SplitwiseProvider>(
+              builder: (_, p, __) => p.pendingRequestCount > 0
+                  ? Container(
+                padding: const EdgeInsets.all(6),
+                decoration: const BoxDecoration(
+                  color: AppColors.error,
+                  shape: BoxShape.circle,
+                ),
+                child: Text('${p.pendingRequestCount}',
+                    style: const TextStyle(
+                        color: AppColors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold)),
+              )
+                  : const Icon(Icons.arrow_forward_ios,
+                  color: AppColors.textSecondary, size: 16),
+            ),
+          ],
+        ),
       ),
     );
   }
