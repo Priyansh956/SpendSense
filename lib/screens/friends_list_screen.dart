@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../providers/splitwise_provider.dart';
 import '../services/splitwise_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'add_friend_screen.dart';
 import 'balances_screen.dart';
 
@@ -22,7 +23,7 @@ class _FriendsListScreenState extends State<FriendsListScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.toLowerCase());
     });
@@ -53,6 +54,7 @@ class _FriendsListScreenState extends State<FriendsListScreen>
                     searchController: _searchController,
                   ),
                   const _RequestsTab(),
+                  const _ActivityTab(),
                 ],
               ),
             ),
@@ -198,6 +200,7 @@ class _FriendsListScreenState extends State<FriendsListScreen>
                   ],
                 ),
               ),
+              const Tab(text: 'Activity'),
             ],
           ),
         );
@@ -735,6 +738,205 @@ class _Avatar extends StatelessWidget {
           fontWeight: FontWeight.bold,
           fontSize: 16,
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────
+// ACTIVITY TAB
+// ─────────────────────────────────────────────────
+
+class _ActivityTab extends StatelessWidget {
+  const _ActivityTab();
+
+  @override
+  Widget build(BuildContext context) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return const SizedBox();
+
+    return Consumer<SplitwiseProvider>(
+      builder: (context, provider, _) {
+        final expenses = provider.splitExpenses;
+
+        if (expenses.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.history,
+                    size: 56, color: AppColors.textTertiary),
+                const SizedBox(height: 16),
+                const Text(
+                  'No activity yet',
+                  style: TextStyle(
+                    color: AppColors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // Flatten expenses into individual debt logs
+        final List<_ActivityLog> logs = [];
+
+        for (final expense in expenses) {
+          final payerUid = expense.paidByUid;
+          final payerName = payerUid == currentUser.uid 
+              ? 'You' 
+              : (expense.paidByName.isNotEmpty ? expense.paidByName.split(' ')[0] : 'Someone');
+
+          for (final participant in expense.participants) {
+            // Skip the payer's own share
+            if (participant.uid == payerUid) continue;
+
+            final participantName = participant.uid == currentUser.uid 
+                ? 'You' 
+                : (participant.displayName.isNotEmpty ? participant.displayName.split(' ')[0] : 'Someone');
+
+            logs.add(_ActivityLog(
+              expense: expense,
+              payerUid: payerUid,
+              payerName: payerName,
+              participantUid: participant.uid,
+              participantName: participantName,
+              amount: participant.amount,
+              isPaid: participant.isPaid,
+              date: expense.date,
+            ));
+          }
+        }
+
+        // Sort by date, newest first
+        logs.sort((a, b) => b.date.compareTo(a.date));
+
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 100),
+          itemCount: logs.length,
+          itemBuilder: (context, index) {
+            return _ActivityLogCard(
+              log: logs[index],
+              currentUid: currentUser.uid,
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _ActivityLog {
+  final SplitExpense expense;
+  final String payerUid;
+  final String payerName;
+  final String participantUid;
+  final String participantName;
+  final double amount;
+  final bool isPaid;
+  final DateTime date;
+
+  _ActivityLog({
+    required this.expense,
+    required this.payerUid,
+    required this.payerName,
+    required this.participantUid,
+    required this.participantName,
+    required this.amount,
+    required this.isPaid,
+    required this.date,
+  });
+}
+
+class _ActivityLogCard extends StatelessWidget {
+  final _ActivityLog log;
+  final String currentUid;
+
+  const _ActivityLogCard({required this.log, required this.currentUid});
+
+  @override
+  Widget build(BuildContext context) {
+    // Determine colors based on user involvement
+    final bool amIPayer = log.payerUid == currentUid;
+    final bool amIParticipant = log.participantUid == currentUid;
+
+    Color amountColor = AppColors.white; // Default neutral color
+    if (amIPayer) amountColor = AppColors.success; // Receiving money
+    if (amIParticipant) amountColor = AppColors.error; // Giving money
+
+    // Construct the verb
+    String actionWord = log.isPaid ? 'paid' : 'owe';
+    if (!amIParticipant && log.isPaid) actionWord = 'paid';
+    if (!amIParticipant && !log.isPaid) actionWord = 'owes';
+
+    // Example: You owe 500 to Gemini
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.lightGrey,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: amountColor.withOpacity(0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: amountColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              log.isPaid ? Icons.check_circle_outline : Icons.receipt_long,
+              color: amountColor,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                RichText(
+                  text: TextSpan(
+                    style: const TextStyle(fontSize: 15, height: 1.4),
+                    children: [
+                      TextSpan(
+                        text: log.participantName,
+                        style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold),
+                      ),
+                      TextSpan(
+                        text: ' $actionWord ',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                      TextSpan(
+                        text: '₹${log.amount.toStringAsFixed(0)}',
+                        style: TextStyle(color: amountColor, fontWeight: FontWeight.bold),
+                      ),
+                      TextSpan(
+                        text: ' to ',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                      TextSpan(
+                        text: log.payerName,
+                        style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${log.expense.title} • ${log.date.day}/${log.date.month}/${log.date.year}',
+                  style: TextStyle(color: AppColors.textTertiary, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
