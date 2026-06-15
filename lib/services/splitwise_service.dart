@@ -183,6 +183,7 @@ class SplitExpense {
     'paidByEmail': paidByEmail,
     'paidByName': paidByName,
     'participants': participants.map((p) => p.toMap()).toList(),
+    'involvedUids': {paidByUid, ...participants.map((p) => p.uid)}.toList(),
     'date': Timestamp.fromDate(date),
     'note': note,
     'isSettled': isSettled,
@@ -383,26 +384,10 @@ class SplitwiseService {
     final uid = _uid;
     if (uid == null) return Stream.value([]);
 
-    // Expenses paid by current user
-    final paidByMe = _db
-        .collection('splitExpenses')
-        .where('paidByUid', isEqualTo: uid)
-        .snapshots();
-
-    // Participants list makes compound queries tricky; we fetch separately
-    // and merge in the provider. For MVP, filter paid-by-me here.
-    return paidByMe.map((s) =>
-        s.docs.map((d) => SplitExpense.fromMap(d.data(), d.id)).toList());
-  }
-
-  /// Stream of splits where user is a participant (owes money)
-  Stream<List<SplitExpense>> splitExpensesAsParticipantStream() {
-    final uid = _uid;
-    if (uid == null) return Stream.value([]);
-
+    // Fetch all expenses where the user is involved (as payer or participant)
     return _db
         .collection('splitExpenses')
-        .where('participantUids', arrayContains: uid)
+        .where('involvedUids', arrayContains: uid)
         .snapshots()
         .map((s) =>
         s.docs.map((d) => SplitExpense.fromMap(d.data(), d.id)).toList());
@@ -445,15 +430,13 @@ class SplitwiseService {
     final uid = _uid;
     if (uid == null) return [];
 
-    final paidQuery = await _db
+    final involvedQuery = await _db
         .collection('splitExpenses')
-        .where('paidByUid', isEqualTo: uid)
+        .where('involvedUids', arrayContains: uid)
         .where('isSettled', isEqualTo: false)
         .get();
 
-    // NOTE: For participant queries, you'd need a participantUids array field.
-    // We compute balances from paidByMe data for MVP.
-    return paidQuery.docs
+    return involvedQuery.docs
         .map((d) => SplitExpense.fromMap(d.data(), d.id))
         .toList();
   }

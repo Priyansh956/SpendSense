@@ -374,18 +374,25 @@ class _ParticipantRow extends StatelessWidget {
             child: Text(
               name,
               style: TextStyle(
-                color: isCurrentUser ? AppColors.neonGreen : AppColors.white,
+                color: participant.isPaid 
+                    ? AppColors.textSecondary 
+                    : (isCurrentUser ? AppColors.neonGreen : AppColors.white),
                 fontSize: 14,
                 fontWeight: isCurrentUser ? FontWeight.bold : FontWeight.normal,
+                decoration: participant.isPaid ? TextDecoration.lineThrough : null,
+                decorationColor: AppColors.textSecondary,
               ),
             ),
           ),
           Text(
             '₹${participant.amount.toStringAsFixed(0)}',
-            style: const TextStyle(
-                color: AppColors.white,
+            style: TextStyle(
+                color: participant.isPaid ? AppColors.textSecondary : AppColors.white,
                 fontWeight: FontWeight.bold,
-                fontSize: 14),
+                fontSize: 14,
+                decoration: participant.isPaid ? TextDecoration.lineThrough : null,
+                decorationColor: AppColors.textSecondary,
+            ),
           ),
           const SizedBox(width: 10),
           if (participant.isPaid)
