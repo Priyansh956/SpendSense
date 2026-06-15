@@ -222,7 +222,6 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const SizedBox(height: 40),
         // Success animation container
         TweenAnimationBuilder<double>(
           tween: Tween(begin: 0.0, end: 1.0),
