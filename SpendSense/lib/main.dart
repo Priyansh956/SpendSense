@@ -30,7 +30,14 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => TransactionProvider()),
-        ChangeNotifierProvider(create: (_) => SplitwiseProvider()..startListening()),
+        ChangeNotifierProvider(
+          create: (_) {
+            final provider = SplitwiseProvider();
+            provider.startListening();
+            provider.startAutoRefresh();
+            return provider;
+          },
+        ),
       ],
       child: MaterialApp(
         title: 'SpendSense',
@@ -73,9 +80,7 @@ class AuthWrapper extends StatelessWidget {
           return const Scaffold(
             backgroundColor: AppColors.black,
             body: Center(
-              child: CircularProgressIndicator(
-                color: AppColors.neonGreen,
-              ),
+              child: CircularProgressIndicator(color: AppColors.neonGreen),
             ),
           );
         }

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:uuid/uuid.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../models/transaction_model.dart';
 import '../models/category_model.dart';
@@ -79,11 +77,9 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     setState(() => _isLoading = true);
 
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw Exception('User not authenticated');
-
+      // No id/userId here: the backend assigns the id on creation and
+      // scopes ownership to whoever's JWT is attached to the request.
       final transaction = Transaction(
-        id: const Uuid().v4(),
         title: _titleController.text.trim(),
         amount: double.parse(_amountController.text),
         category: _selectedCategory!,
@@ -94,7 +90,8 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
             : _noteController.text.trim(),
       );
 
-      final provider = Provider.of<TransactionProvider>(context, listen: false);
+      final provider =
+          Provider.of<TransactionProvider>(context, listen: false);
       await provider.addTransaction(transaction);
 
       if (mounted) {
@@ -116,7 +113,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -344,7 +341,8 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                           : AppColors.lightGrey,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isSelected ? category.color : Colors.transparent,
+                        color:
+                            isSelected ? category.color : Colors.transparent,
                         width: 2,
                       ),
                     ),
