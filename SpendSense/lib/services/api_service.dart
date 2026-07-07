@@ -41,10 +41,14 @@ class ApiService {
     };
   }
 
+  static Future<Map<String, String>> authHeaders() async => _authHeaders();
+
   static Map<String, dynamic> _decode(http.Response res) {
     if (res.body.isEmpty) return {};
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
+
+  static Map<String, dynamic> decode(http.Response res) => _decode(res);
 
   // ---------------- Auth ----------------
 
@@ -102,7 +106,9 @@ class ApiService {
     final body = _decode(res);
     if (res.statusCode != 200) {
       throw ApiException(
-          body['message'] ?? 'Failed to fetch profile', res.statusCode);
+        body['message'] ?? 'Failed to fetch profile',
+        res.statusCode,
+      );
     }
     return Map<String, dynamic>.from(body['data'] as Map);
   }
@@ -117,7 +123,9 @@ class ApiService {
     final body = _decode(res);
     if (res.statusCode != 200) {
       throw ApiException(
-          body['message'] ?? 'Failed to update categories', res.statusCode);
+        body['message'] ?? 'Failed to update categories',
+        res.statusCode,
+      );
     }
     final data = Map<String, dynamic>.from(body['data'] as Map);
     return List<String>.from(data['categories'] ?? []);
@@ -137,7 +145,9 @@ class ApiService {
     final body = _decode(res);
     if (res.statusCode != 200) {
       throw ApiException(
-          body['message'] ?? 'Failed to fetch transactions', res.statusCode);
+        body['message'] ?? 'Failed to fetch transactions',
+        res.statusCode,
+      );
     }
     return List<Map<String, dynamic>>.from(body['data'] as List);
   }
@@ -166,7 +176,9 @@ class ApiService {
     final body = _decode(res);
     if (res.statusCode != 201) {
       throw ApiException(
-          body['message'] ?? 'Failed to add transaction', res.statusCode);
+        body['message'] ?? 'Failed to add transaction',
+        res.statusCode,
+      );
     }
     return Map<String, dynamic>.from(body['data'] as Map);
   }
@@ -196,7 +208,9 @@ class ApiService {
     final body = _decode(res);
     if (res.statusCode != 200) {
       throw ApiException(
-          body['message'] ?? 'Failed to update transaction', res.statusCode);
+        body['message'] ?? 'Failed to update transaction',
+        res.statusCode,
+      );
     }
     return Map<String, dynamic>.from(body['data'] as Map);
   }
@@ -210,7 +224,9 @@ class ApiService {
     if (res.statusCode != 200) {
       final body = _decode(res);
       throw ApiException(
-          body['message'] ?? 'Failed to delete transaction', res.statusCode);
+        body['message'] ?? 'Failed to delete transaction',
+        res.statusCode,
+      );
     }
   }
 }

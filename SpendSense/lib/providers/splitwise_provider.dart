@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
+import '../services/friends_api_service.dart';
 import '../services/splitwise_service.dart';
 
 class SplitwiseProvider with ChangeNotifier {
-  final SplitwiseService _service = SplitwiseService();
+  final FriendsApiService _friendsApi = FriendsApiService();
+  final SplitwiseService _firebaseService = SplitwiseService();
 
   List<Friend> _friends = [];
   List<FriendRequest> _incomingRequests = [];
@@ -10,6 +13,7 @@ class SplitwiseProvider with ChangeNotifier {
   List<SplitExpense> _splitExpenses = [];
   bool _isLoading = false;
   String? _error;
+  Timer? _refreshTimer;
 
   List<Friend> get friends => _friends;
   List<FriendRequest> get incomingRequests => _incomingRequests;
@@ -24,26 +28,43 @@ class SplitwiseProvider with ChangeNotifier {
   // STREAM LISTENERS
   // ─────────────────────────────────────────────
 
-  void startListening() {
-    _service.friendsStream().listen((friends) {
-      _friends = friends;
-      notifyListeners();
-    });
+  Future<void> startListening() async {
+    await refreshFriendsData();
+  }
 
-    _service.incomingRequestsStream().listen((requests) {
-      _incomingRequests = requests;
+  Future<void> refreshFriendsData() async {
+    try {
+      _isLoading = true;
       notifyListeners();
-    });
 
-    _service.sentRequestsStream().listen((requests) {
-      _sentRequests = requests;
+      _friends = await FriendsApiService.getFriends();
+      _incomingRequests = await FriendsApiService.getIncomingRequests();
+      _sentRequests = await FriendsApiService.getOutgoingRequests();
+      _error = null;
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      _isLoading = false;
       notifyListeners();
-    });
+    }
+  }
 
-    _service.splitExpensesStream().listen((expenses) {
-      _splitExpenses = expenses;
-      notifyListeners();
+  void startAutoRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      refreshFriendsData();
     });
+  }
+
+  void stopAutoRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+  }
+
+  @override
+  void dispose() {
+    stopAutoRefresh();
+    super.dispose();
   }
 
   // ─────────────────────────────────────────────
@@ -55,7 +76,8 @@ class SplitwiseProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      await _service.sendFriendRequest(email);
+      await FriendsApiService.sendFriendRequest(email);
+      await startListening();
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
       rethrow;
@@ -67,7 +89,8 @@ class SplitwiseProvider with ChangeNotifier {
 
   Future<void> acceptRequest(FriendRequest request) async {
     try {
-      await _service.acceptFriendRequest(request);
+      await FriendsApiService.acceptRequest(request.id);
+      await startListening();
     } catch (e) {
       rethrow;
     }
@@ -75,7 +98,8 @@ class SplitwiseProvider with ChangeNotifier {
 
   Future<void> rejectRequest(String requestId) async {
     try {
-      await _service.rejectFriendRequest(requestId);
+      await FriendsApiService.rejectRequest(requestId);
+      await startListening();
     } catch (e) {
       rethrow;
     }
@@ -83,7 +107,7 @@ class SplitwiseProvider with ChangeNotifier {
 
   Future<void> removeFriend(String friendUid) async {
     try {
-      await _service.removeFriend(friendUid);
+      await _firebaseService.removeFriend(friendUid);
     } catch (e) {
       rethrow;
     }
@@ -97,7 +121,7 @@ class SplitwiseProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      await _service.createSplitExpense(expense);
+      await _firebaseService.createSplitExpense(expense);
     } catch (e) {
       rethrow;
     } finally {
@@ -108,7 +132,7 @@ class SplitwiseProvider with ChangeNotifier {
 
   Future<void> markPaid(String expenseId, String participantUid) async {
     try {
-      await _service.markParticipantPaid(expenseId, participantUid);
+      await _firebaseService.markParticipantPaid(expenseId, participantUid);
     } catch (e) {
       rethrow;
     }
@@ -116,7 +140,7 @@ class SplitwiseProvider with ChangeNotifier {
 
   Future<void> settleExpense(String expenseId) async {
     try {
-      await _service.settleExpense(expenseId);
+      await _firebaseService.settleExpense(expenseId);
     } catch (e) {
       rethrow;
     }
@@ -124,7 +148,7 @@ class SplitwiseProvider with ChangeNotifier {
 
   Future<void> deleteSplitExpense(String expenseId) async {
     try {
-      await _service.deleteSplitExpense(expenseId);
+      await _firebaseService.deleteSplitExpense(expenseId);
     } catch (e) {
       rethrow;
     }
@@ -166,18 +190,16 @@ class SplitwiseProvider with ChangeNotifier {
 
   /// Total amount you are owed
   double totalOwedToYou(String currentUid) {
-    return getBalances(currentUid)
-        .values
-        .where((v) => v > 0)
-        .fold(0.0, (sum, v) => sum + v);
+    return getBalances(
+      currentUid,
+    ).values.where((v) => v > 0).fold(0.0, (sum, v) => sum + v);
   }
 
   /// Total amount you owe others
   double totalYouOwe(String currentUid) {
-    return getBalances(currentUid)
-        .values
-        .where((v) => v < 0)
-        .fold(0.0, (sum, v) => sum + v.abs());
+    return getBalances(
+      currentUid,
+    ).values.where((v) => v < 0).fold(0.0, (sum, v) => sum + v.abs());
   }
 
   /// Net balance (positive = you're owed more, negative = you owe more)
@@ -206,9 +228,11 @@ class SplitwiseProvider with ChangeNotifier {
   /// Split expenses filtered by friend
   List<SplitExpense> expensesWithFriend(String friendUid, String currentUid) {
     return _splitExpenses.where((e) {
-      final involvesFriend = e.paidByUid == friendUid ||
+      final involvesFriend =
+          e.paidByUid == friendUid ||
           e.participants.any((p) => p.uid == friendUid);
-      final involvesMe = e.paidByUid == currentUid ||
+      final involvesMe =
+          e.paidByUid == currentUid ||
           e.participants.any((p) => p.uid == currentUid);
       return involvesFriend && involvesMe && !e.isSettled;
     }).toList();

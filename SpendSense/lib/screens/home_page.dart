@@ -344,7 +344,10 @@ class _HomePageState extends State<HomePage> with RouteAware {
     );
 
     return Dismissible(
-      key: Key(transaction.id ?? UniqueKey().toString()),
+      key: ValueKey(
+        transaction.id ??
+            '${transaction.title}-${transaction.date.toIso8601String()}-${transaction.amount}',
+      ),
       direction: DismissDirection.horizontal,
 
       // 👉 EDIT (swipe left to right)

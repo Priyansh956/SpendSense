@@ -10,11 +10,7 @@ class Friend {
   final String email;
   final String displayName;
 
-  Friend({
-    required this.uid,
-    required this.email,
-    required this.displayName,
-  });
+  Friend({required this.uid, required this.email, required this.displayName});
 
   factory Friend.fromMap(Map<String, dynamic> map) {
     return Friend(
@@ -59,8 +55,21 @@ class FriendRequest {
       toUid: map['toUid'] ?? '',
       toEmail: map['toEmail'] ?? '',
       status: _statusFromString(map['status'] ?? 'pending'),
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: _parseCreatedAt(map['createdAt']),
     );
+  }
+
+  static DateTime _parseCreatedAt(dynamic value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    if (value is DateTime) {
+      return value;
+    }
+    if (value is String) {
+      return DateTime.tryParse(value) ?? DateTime.now();
+    }
+    return DateTime.now();
   }
 
   static FriendRequestStatus _statusFromString(String s) {
@@ -280,9 +289,10 @@ class SplitwiseService {
         .where('toUid', isEqualTo: uid)
         .where('status', isEqualTo: 'pending')
         .snapshots()
-        .map((s) => s.docs
-        .map((d) => FriendRequest.fromMap(d.data(), d.id))
-        .toList());
+        .map(
+          (s) =>
+              s.docs.map((d) => FriendRequest.fromMap(d.data(), d.id)).toList(),
+        );
   }
 
   /// Stream of sent friend requests
@@ -295,9 +305,10 @@ class SplitwiseService {
         .where('fromUid', isEqualTo: uid)
         .where('status', isEqualTo: 'pending')
         .snapshots()
-        .map((s) => s.docs
-        .map((d) => FriendRequest.fromMap(d.data(), d.id))
-        .toList());
+        .map(
+          (s) =>
+              s.docs.map((d) => FriendRequest.fromMap(d.data(), d.id)).toList(),
+        );
   }
 
   /// Accept a friend request
@@ -314,7 +325,11 @@ class SplitwiseService {
 
     // Add both ways to friends subcollection
     batch.set(
-      _db.collection('users').doc(uid).collection('friends').doc(request.fromUid),
+      _db
+          .collection('users')
+          .doc(uid)
+          .collection('friends')
+          .doc(request.fromUid),
       {
         'uid': request.fromUid,
         'email': request.fromEmail,
@@ -324,7 +339,11 @@ class SplitwiseService {
     );
 
     batch.set(
-      _db.collection('users').doc(request.fromUid).collection('friends').doc(uid),
+      _db
+          .collection('users')
+          .doc(request.fromUid)
+          .collection('friends')
+          .doc(uid),
       {
         'uid': uid,
         'email': _email,
@@ -363,9 +382,11 @@ class SplitwiseService {
 
     final batch = _db.batch();
     batch.delete(
-        _db.collection('users').doc(uid).collection('friends').doc(friendUid));
+      _db.collection('users').doc(uid).collection('friends').doc(friendUid),
+    );
     batch.delete(
-        _db.collection('users').doc(friendUid).collection('friends').doc(uid));
+      _db.collection('users').doc(friendUid).collection('friends').doc(uid),
+    );
     await batch.commit();
   }
 
@@ -389,13 +410,17 @@ class SplitwiseService {
         .collection('splitExpenses')
         .where('involvedUids', arrayContains: uid)
         .snapshots()
-        .map((s) =>
-        s.docs.map((d) => SplitExpense.fromMap(d.data(), d.id)).toList());
+        .map(
+          (s) =>
+              s.docs.map((d) => SplitExpense.fromMap(d.data(), d.id)).toList(),
+        );
   }
 
   /// Mark a participant as paid in a split expense
   Future<void> markParticipantPaid(
-      String expenseId, String participantUid) async {
+    String expenseId,
+    String participantUid,
+  ) async {
     final doc = await _db.collection('splitExpenses').doc(expenseId).get();
     if (!doc.exists) throw Exception('Expense not found');
 

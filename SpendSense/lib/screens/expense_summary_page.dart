@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-// import 'package:spendsense/screens/add_transaction_page_updated.dart';
-// import 'package:spendsense/screens/home_page.dart';
+import 'package:spendsense/screens/add_transaction_page_updated.dart';
+import 'package:spendsense/screens/home_page.dart';
 import '../models/transaction_model.dart';
 import '../models/category_model.dart';
 import '../providers/transaction_provider.dart';

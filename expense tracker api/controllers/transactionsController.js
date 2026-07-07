@@ -4,7 +4,12 @@ const {NotFoundError} = require('../services/errorHandlers');
 
 // Add expense
 const addExpense = asyncWrapper(async(req, res, next) => {
-    const {expenditureCategory, amount, category, date, note} = req.body;
+    const {title, expenditureCategory, amount, category, date, note} = req.body;
+
+    if(!title) return res.status(400).json({
+        "message": "Enter the title",
+        "success": false,
+    });
 
     if(!expenditureCategory) return res.status(400).json({
         "message": "Choose the expenditure type",
@@ -28,6 +33,7 @@ const addExpense = asyncWrapper(async(req, res, next) => {
 
     const new_transaction = await transaction.create({
         userId: req.user._id,
+        title,
         expenditureCategory,
         amount,
         category,
@@ -45,11 +51,11 @@ const addExpense = asyncWrapper(async(req, res, next) => {
 // Edit expense
 const editExpense = asyncWrapper(async(req, res, next) => {
     const {id} = req.params;
-    const {expenditureCategory, amount, category, date, note} = req.body;
+    const {title, expenditureCategory, amount, category, date, note} = req.body;
 
     const updated_transaction = await transaction.findOneAndUpdate(
         { _id: id, userId: req.user._id },
-        { expenditureCategory, amount, category, date, note },
+        { title, expenditureCategory, amount, category, date, note },
         { new: true, runValidators: true }
     );
 

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../providers/transaction_provider.dart';
 import '../models/category_model.dart';
+import '../services/api_service.dart';
 import 'edit_categories_page.dart';
 import 'login.dart';
 
@@ -17,8 +18,19 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  final user = FirebaseAuth.instance.currentUser;
   bool _isLoading = false;
+  String _email = '';
+  String _displayName = 'User';
+
+  User? get _firebaseUser => FirebaseAuth.instance.currentUser;
+  String get _resolvedEmail =>
+      _email.isNotEmpty ? _email : _firebaseUser?.email ?? 'No email';
+  String get _resolvedDisplayName => _displayName.isNotEmpty
+      ? _displayName
+      : (_firebaseUser?.email?.split('@')[0] ?? 'User');
+  String get _resolvedInitial => _resolvedEmail.isNotEmpty
+      ? _resolvedEmail.substring(0, 1).toUpperCase()
+      : 'U';
 
   @override
   void initState() {
@@ -34,6 +46,24 @@ class _ProfilePageState extends State<ProfilePage> {
     if (provider.selectedCategories.isEmpty) {
       await provider.loadUserCategories();
     }
+    await _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final me = await ApiService.getMe();
+      if (!mounted) return;
+      setState(() {
+        _email = (me['email'] as String?) ?? '';
+        _displayName = _email.isNotEmpty ? _email.split('@')[0] : 'User';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _email = _firebaseUser?.email ?? '';
+        _displayName = _email.isNotEmpty ? _email.split('@')[0] : 'User';
+      });
+    }
   }
 
   /// Handle user sign out
@@ -42,15 +72,10 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.lightGrey,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           'Sign Out',
-          style: TextStyle(
-            color: AppColors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold),
         ),
         content: const Text(
           'Are you sure you want to sign out?',
@@ -78,11 +103,12 @@ class _ProfilePageState extends State<ProfilePage> {
     if (shouldSignOut == true) {
       setState(() => _isLoading = true);
       try {
+        await ApiService.logout();
         await FirebaseAuth.instance.signOut();
         if (mounted) {
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (context) => const LoginPage()),
-                (route) => false,
+            (route) => false,
           );
         }
       } catch (e) {
@@ -106,9 +132,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _editCategories() async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const EditCategoriesPage(),
-      ),
+      MaterialPageRoute(builder: (context) => const EditCategoriesPage()),
     );
 
     // Reload data if categories were updated
@@ -121,9 +145,7 @@ class _ProfilePageState extends State<ProfilePage> {
   /// Send password reset email
   Future<void> _changePassword() async {
     try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(
-        email: user?.email ?? '',
-      );
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: _resolvedEmail);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -151,15 +173,10 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.lightGrey,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           'Account Details',
-          style: TextStyle(
-            color: AppColors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -167,14 +184,11 @@ class _ProfilePageState extends State<ProfilePage> {
           children: [
             const Text(
               'Email',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
             ),
             const SizedBox(height: 4),
             Text(
-              user?.email ?? 'No email',
+              _resolvedEmail,
               style: const TextStyle(
                 color: AppColors.white,
                 fontSize: 16,
@@ -184,14 +198,12 @@ class _ProfilePageState extends State<ProfilePage> {
             const SizedBox(height: 16),
             const Text(
               'Account Created',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
             ),
             const SizedBox(height: 4),
             Text(
-              user?.metadata.creationTime?.toString().split(' ')[0] ?? 'Unknown',
+              _firebaseUser?.metadata.creationTime?.toString().split(' ')[0] ??
+                  'Unknown',
               style: const TextStyle(
                 color: AppColors.white,
                 fontSize: 16,
@@ -251,15 +263,10 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.lightGrey,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           'Help & Support',
-          style: TextStyle(
-            color: AppColors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold),
         ),
         content: const SingleChildScrollView(
           child: Column(
@@ -321,15 +328,10 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.lightGrey,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           'Privacy Policy',
-          style: TextStyle(
-            color: AppColors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold),
         ),
         content: const SingleChildScrollView(
           child: Text(
@@ -340,10 +342,7 @@ class _ProfilePageState extends State<ProfilePage> {
             '• Your email is used only for authentication purposes\n'
             '• You can delete your account and all data at any time\n\n'
             'By using SpendSense, you agree to these terms.',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              height: 1.5,
-            ),
+            style: TextStyle(color: AppColors.textSecondary, height: 1.5),
           ),
         ),
         actions: [
@@ -404,10 +403,7 @@ class _ProfilePageState extends State<ProfilePage> {
               const SizedBox(height: 4),
               Text(
                 'Manage your account & preferences',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
               ),
             ],
           ),
@@ -436,10 +432,7 @@ class _ProfilePageState extends State<ProfilePage> {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            AppColors.neonGreen.withOpacity(0.15),
-            AppColors.lightGrey,
-          ],
+          colors: [AppColors.neonGreen.withOpacity(0.15), AppColors.lightGrey],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -455,7 +448,7 @@ class _ProfilePageState extends State<ProfilePage> {
             radius: 45,
             backgroundColor: AppColors.neonGreen,
             child: Text(
-              user?.email?.substring(0, 1).toUpperCase() ?? 'U',
+              _resolvedInitial,
               style: const TextStyle(
                 color: AppColors.black,
                 fontSize: 36,
@@ -477,7 +470,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  user?.email?.split('@')[0] ?? 'User',
+                  _resolvedDisplayName,
                   style: const TextStyle(
                     color: AppColors.white,
                     fontSize: 22,
@@ -487,7 +480,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  user?.email ?? 'No email',
+                  _resolvedEmail,
                   style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13,
@@ -732,7 +725,7 @@ class _ProfilePageState extends State<ProfilePage> {
       leading: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: isDestructive 
+          color: isDestructive
               ? AppColors.error.withOpacity(0.2)
               : AppColors.neonGreen.withOpacity(0.2),
           borderRadius: BorderRadius.circular(10),
@@ -753,10 +746,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       subtitle: Text(
         subtitle,
-        style: TextStyle(
-          color: AppColors.textSecondary,
-          fontSize: 13,
-        ),
+        style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
       ),
       trailing: Icon(
         Icons.arrow_forward_ios,
