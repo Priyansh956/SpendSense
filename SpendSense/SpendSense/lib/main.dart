@@ -1,0 +1,109 @@
+import 'package:flutter/material.dart';
+import 'providers/splitwise_provider.dart';
+
+import 'package:provider/provider.dart';
+
+import 'services/api_service.dart';
+import 'providers/transaction_provider.dart';
+import 'screens/main_navigation.dart';
+import 'screens/category_selection_page.dart';
+import 'screens/login.dart';
+import 'constants/app_colors.dart';
+import './screens/profile_page.dart';
+import 'screens/friends_list_screen.dart';
+
+// ✅ REQUIRED FOR ROUTE-AWARE SNACKBARS
+final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => TransactionProvider()),
+        ChangeNotifierProvider(
+          create: (_) {
+            final provider = SplitwiseProvider();
+            provider.startListening();
+            provider.startAutoRefresh();
+            return provider;
+          },
+        ),
+      ],
+      child: MaterialApp(
+        title: 'SpendSense',
+        debugShowCheckedModeBanner: false,
+
+        // ✅ REQUIRED
+        navigatorObservers: [routeObserver],
+
+        theme: ThemeData(
+          scaffoldBackgroundColor: AppColors.black,
+          primaryColor: AppColors.neonGreen,
+          fontFamily: 'Inter',
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: AppColors.neonGreen,
+            brightness: Brightness.dark,
+          ),
+          useMaterial3: true,
+        ),
+        home: const AuthWrapper(),
+        routes: {
+          '/home': (context) => const MainNavigation(),
+          '/categories': (context) => const CategorySelectionPage(),
+          '/profile': (context) => const ProfilePage(),
+          '/friends': (context) => const FriendsListScreen(),
+        },
+      ),
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  Future<bool> _verifyBackendLogin() async {
+    if (!await ApiService.isLoggedIn()) {
+      return false;
+    }
+
+    try {
+      await ApiService.getMe();
+      return true;
+    } catch (e) {
+      await ApiService.logout();
+      return false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: _verifyBackendLogin(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            backgroundColor: AppColors.black,
+            body: Center(
+              child: CircularProgressIndicator(color: AppColors.neonGreen),
+            ),
+          );
+        }
+
+        if (snapshot.data == true) {
+          return const MainNavigation();
+        }
+
+        return const LoginPage();
+      },
+    );
+  }
+}

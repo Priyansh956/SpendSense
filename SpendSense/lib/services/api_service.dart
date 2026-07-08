@@ -17,8 +17,7 @@ class ApiService {
   // Windows: run `ipconfig` and look for "IPv4 Address" under your WiFi adapter.
   // Mac/Linux: run `ifconfig` or `ip addr` and look for the WiFi interface (en0/wlan0).
   // Phone and laptop must be on the same WiFi network.
-  static const String baseUrl = 'https://spendsense-1mdq.onrender.com'; // Local backend URL
-
+  static const String baseUrl = 'https://spendsense-1mdq.onrender.com'; 
   static const _storage = FlutterSecureStorage();
   static const _tokenKey = 'auth_token';
   static Map<String, dynamic>? _currentUser;
