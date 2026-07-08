@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'providers/splitwise_provider.dart';
-import 'package:firebase_core/firebase_core.dart';
+
 import 'package:provider/provider.dart';
 
 import 'services/api_service.dart';
@@ -17,8 +17,7 @@ final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Still required: Splitwise/friends feature is not yet migrated off Firebase.
-  await Firebase.initializeApp();
+
   runApp(const MyApp());
 }
 
