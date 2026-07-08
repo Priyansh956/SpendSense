@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import '../constants/app_colors.dart';
 import '../models/category_model.dart';
 import '../providers/splitwise_provider.dart';
 import '../providers/transaction_provider.dart';
+import '../services/api_service.dart';
 import '../services/splitwise_service.dart';
 
 class AddSplitExpenseScreen extends StatefulWidget {
@@ -26,11 +26,29 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
   String? _selectedCategory;
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
+  Map<String, dynamic>? _currentUser;
 
   // Split state
   final Set<String> _selectedFriendUids = {};
   String _splitMode = 'equal'; // 'equal' | 'custom'
   final Map<String, TextEditingController> _customAmountControllers = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUser();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    try {
+      final user = await ApiService.getMe();
+      if (mounted) {
+        setState(() => _currentUser = user);
+      }
+    } catch (_) {
+      // Ignore here; submission will surface errors if still unauthenticated.
+    }
+  }
 
   @override
   void dispose() {
@@ -43,8 +61,7 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
     super.dispose();
   }
 
-  double get _totalAmount =>
-      double.tryParse(_amountController.text) ?? 0;
+  double get _totalAmount => double.tryParse(_amountController.text) ?? 0;
 
   int get _participantCount =>
       _selectedFriendUids.length + 1; // +1 for current user
@@ -76,22 +93,56 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
   Future<void> _saveSplitExpense() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedCategory == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Please select a category'),
-        backgroundColor: AppColors.error,
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a category'),
+          backgroundColor: AppColors.error,
+        ),
+      );
       return;
     }
     if (_selectedFriendUids.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Please select at least one friend to split with'),
-        backgroundColor: AppColors.error,
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select at least one friend to split with'),
+          backgroundColor: AppColors.error,
+        ),
+      );
       return;
     }
 
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    Map<String, dynamic>? user = _currentUser;
+    if (user == null) {
+      try {
+        user = await ApiService.getMe();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Unable to retrieve logged-in user. Please try again.',
+              ),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    final userId = user['_id']?.toString();
+    final userEmail = user['email']?.toString();
+    if (userId == null || userEmail == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('User information is incomplete.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+      return;
+    }
 
     setState(() => _isLoading = true);
 
@@ -100,62 +151,72 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
 
       // Build participants list
       final participants = <SplitParticipant>[];
+      final displayName = userEmail.split('@')[0];
 
       if (_splitMode == 'equal') {
         // Current user's share
-        participants.add(SplitParticipant(
-          uid: user.uid,
-          email: user.email ?? '',
-          displayName: user.email?.split('@')[0] ?? 'You',
-          amount: _equalShare,
-          isPaid: true, // Payer already paid their share
-        ));
+        participants.add(
+          SplitParticipant(
+            uid: userId,
+            email: userEmail,
+            displayName: displayName,
+            amount: _equalShare,
+            isPaid: true,
+          ),
+        );
 
         // Friends' shares
         for (final uid in _selectedFriendUids) {
-          participants.add(SplitParticipant(
-            uid: uid,
-            email: provider.getFriendEmail(uid),
-            displayName: provider.getFriendName(uid),
-            amount: _equalShare,
-            isPaid: false,
-          ));
+          participants.add(
+            SplitParticipant(
+              uid: uid,
+              email: provider.getFriendEmail(uid),
+              displayName: provider.getFriendName(uid),
+              amount: _equalShare,
+              isPaid: false,
+            ),
+          );
         }
       } else {
         // Custom split
         double total = 0;
-        // Current user
         final myAmount =
             double.tryParse(_customAmountControllers['me']?.text ?? '0') ?? 0;
-        participants.add(SplitParticipant(
-          uid: user.uid,
-          email: user.email ?? '',
-          displayName: user.email?.split('@')[0] ?? 'You',
-          amount: myAmount,
-          isPaid: true,
-        ));
+        participants.add(
+          SplitParticipant(
+            uid: userId,
+            email: userEmail,
+            displayName: displayName,
+            amount: myAmount,
+            isPaid: true,
+          ),
+        );
         total += myAmount;
 
         for (final uid in _selectedFriendUids) {
           final amount =
               double.tryParse(_customAmountControllers[uid]?.text ?? '0') ?? 0;
-          participants.add(SplitParticipant(
-            uid: uid,
-            email: provider.getFriendEmail(uid),
-            displayName: provider.getFriendName(uid),
-            amount: amount,
-            isPaid: false,
-          ));
+          participants.add(
+            SplitParticipant(
+              uid: uid,
+              email: provider.getFriendEmail(uid),
+              displayName: provider.getFriendName(uid),
+              amount: amount,
+              isPaid: false,
+            ),
+          );
           total += amount;
         }
 
-        // Validate total
         if ((total - _totalAmount).abs() > 0.01) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(
-                'Split amounts (₹${total.toStringAsFixed(2)}) must equal total (₹${_totalAmount.toStringAsFixed(2)})'),
-            backgroundColor: AppColors.error,
-          ));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Split amounts (₹${total.toStringAsFixed(2)}) must equal total (₹${_totalAmount.toStringAsFixed(2)})',
+              ),
+              backgroundColor: AppColors.error,
+            ),
+          );
           setState(() => _isLoading = false);
           return;
         }
@@ -166,9 +227,9 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
         title: _titleController.text.trim(),
         totalAmount: _totalAmount,
         category: _selectedCategory!,
-        paidByUid: user.uid,
-        paidByEmail: user.email ?? '',
-        paidByName: user.email?.split('@')[0] ?? 'You',
+        paidByUid: userId,
+        paidByEmail: userEmail,
+        paidByName: userEmail.split('@')[0],
         participants: participants,
         date: _selectedDate,
         note: _noteController.text.trim().isEmpty
@@ -180,17 +241,21 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
 
       if (mounted) {
         Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Split expense created!'),
-          backgroundColor: AppColors.success,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Split expense created!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: AppColors.error,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -258,8 +323,10 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
       decoration: InputDecoration(
         labelText: 'Total Amount',
         labelStyle: TextStyle(color: AppColors.textSecondary),
-        prefixIcon:
-        const Icon(Icons.currency_rupee, color: AppColors.neonGreen),
+        prefixIcon: const Icon(
+          Icons.currency_rupee,
+          color: AppColors.neonGreen,
+        ),
         filled: true,
         fillColor: AppColors.lightGrey,
         border: OutlineInputBorder(
@@ -301,7 +368,7 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
         ),
       ),
       validator: (v) =>
-      (v == null || v.trim().isEmpty) ? 'Please enter a title' : null,
+          (v == null || v.trim().isEmpty) ? 'Please enter a title' : null,
     );
   }
 
@@ -316,11 +383,14 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Category',
-                style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500)),
+            Text(
+              'Category',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
             const SizedBox(height: 12),
             Wrap(
               spacing: 10,
@@ -331,7 +401,9 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
                   onTap: () => setState(() => _selectedCategory = cat.id),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: sel
                           ? cat.color.withOpacity(0.2)
@@ -345,18 +417,24 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(cat.icon,
-                            color: sel ? cat.color : AppColors.textSecondary,
-                            size: 18),
+                        Icon(
+                          cat.icon,
+                          color: sel ? cat.color : AppColors.textSecondary,
+                          size: 18,
+                        ),
                         const SizedBox(width: 6),
-                        Text(cat.name,
-                            style: TextStyle(
-                              color: sel ? AppColors.white : AppColors.textSecondary,
-                              fontWeight: sel
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                              fontSize: 13,
-                            )),
+                        Text(
+                          cat.name,
+                          style: TextStyle(
+                            color: sel
+                                ? AppColors.white
+                                : AppColors.textSecondary,
+                            fontWeight: sel
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            fontSize: 13,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -384,12 +462,14 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
             const SizedBox(width: 16),
             Text(
               DateFormat('dd MMM, yyyy').format(_selectedDate),
-              style:
-              const TextStyle(color: AppColors.white, fontSize: 16),
+              style: const TextStyle(color: AppColors.white, fontSize: 16),
             ),
             const Spacer(),
-            const Icon(Icons.arrow_forward_ios,
-                color: AppColors.textSecondary, size: 16),
+            const Icon(
+              Icons.arrow_forward_ios,
+              color: AppColors.textSecondary,
+              size: 16,
+            ),
           ],
         ),
       ),
@@ -436,8 +516,10 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline,
-                        color: AppColors.textSecondary),
+                    const Icon(
+                      Icons.info_outline,
+                      color: AppColors.textSecondary,
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -502,14 +584,20 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(friend.displayName,
-                                  style: const TextStyle(
-                                      color: AppColors.white,
-                                      fontWeight: FontWeight.bold)),
-                              Text(friend.email,
-                                  style: TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 12)),
+                              Text(
+                                friend.displayName,
+                                style: const TextStyle(
+                                  color: AppColors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                friend.email,
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 12,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -530,8 +618,11 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
                             ),
                           ),
                           child: isSelected
-                              ? const Icon(Icons.check,
-                              color: AppColors.black, size: 16)
+                              ? const Icon(
+                                  Icons.check,
+                                  color: AppColors.black,
+                                  size: 16,
+                                )
                               : null,
                         ),
                       ],
@@ -552,9 +643,10 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
         Text(
           'Split Method',
           style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 16,
-              fontWeight: FontWeight.w500),
+            color: AppColors.textSecondary,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
         ),
         const SizedBox(height: 12),
         Row(
@@ -579,20 +671,24 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
                   ),
                   child: Column(
                     children: [
-                      Icon(Icons.balance,
-                          color: _splitMode == 'equal'
-                              ? AppColors.neonGreen
-                              : AppColors.textSecondary,
-                          size: 24),
+                      Icon(
+                        Icons.balance,
+                        color: _splitMode == 'equal'
+                            ? AppColors.neonGreen
+                            : AppColors.textSecondary,
+                        size: 24,
+                      ),
                       const SizedBox(height: 6),
-                      Text('Equal Split',
-                          style: TextStyle(
-                            color: _splitMode == 'equal'
-                                ? AppColors.white
-                                : AppColors.textSecondary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          )),
+                      Text(
+                        'Equal Split',
+                        style: TextStyle(
+                          color: _splitMode == 'equal'
+                              ? AppColors.white
+                              : AppColors.textSecondary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -606,13 +702,11 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
                     _splitMode = 'custom';
                     // Init controllers for custom split
                     if (!_customAmountControllers.containsKey('me')) {
-                      _customAmountControllers['me'] =
-                          TextEditingController();
+                      _customAmountControllers['me'] = TextEditingController();
                     }
                     for (final uid in _selectedFriendUids) {
                       if (!_customAmountControllers.containsKey(uid)) {
-                        _customAmountControllers[uid] =
-                            TextEditingController();
+                        _customAmountControllers[uid] = TextEditingController();
                       }
                     }
                   });
@@ -634,20 +728,24 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
                   ),
                   child: Column(
                     children: [
-                      Icon(Icons.tune,
-                          color: _splitMode == 'custom'
-                              ? AppColors.neonGreen
-                              : AppColors.textSecondary,
-                          size: 24),
+                      Icon(
+                        Icons.tune,
+                        color: _splitMode == 'custom'
+                            ? AppColors.neonGreen
+                            : AppColors.textSecondary,
+                        size: 24,
+                      ),
                       const SizedBox(height: 6),
-                      Text('Custom Split',
-                          style: TextStyle(
-                            color: _splitMode == 'custom'
-                                ? AppColors.white
-                                : AppColors.textSecondary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          )),
+                      Text(
+                        'Custom Split',
+                        style: TextStyle(
+                          color: _splitMode == 'custom'
+                              ? AppColors.white
+                              : AppColors.textSecondary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -662,24 +760,26 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
   Widget _buildSplitPreview() {
     return Consumer<SplitwiseProvider>(
       builder: (context, provider, _) {
-        final user = FirebaseAuth.instance.currentUser;
+        final userEmail = _currentUser?['email']?.toString();
+        final userName = userEmail?.split('@')[0] ?? 'You';
 
         return Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: AppColors.lightGrey,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: AppColors.neonGreen.withOpacity(0.2),
-            ),
+            border: Border.all(color: AppColors.neonGreen.withOpacity(0.2)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  const Icon(Icons.receipt_long,
-                      color: AppColors.neonGreen, size: 18),
+                  const Icon(
+                    Icons.receipt_long,
+                    color: AppColors.neonGreen,
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
                   const Text(
                     'Split Preview',
@@ -702,13 +802,15 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
               ),
               const Divider(color: AppColors.mediumGrey, height: 20),
               // Friends
-              ...(_selectedFriendUids.map((uid) => _buildSplitRow(
-                name: provider!.getFriendName(uid),
-                amount: _splitMode == 'equal' ? _equalShare : null,
-                controller: _customAmountControllers[uid],
-                isCustom: _splitMode == 'custom',
-                isPayer: false,
-              ))),
+              ...(_selectedFriendUids.map(
+                (uid) => _buildSplitRow(
+                  name: provider!.getFriendName(uid),
+                  amount: _splitMode == 'equal' ? _equalShare : null,
+                  controller: _customAmountControllers[uid],
+                  isCustom: _splitMode == 'custom',
+                  isPayer: false,
+                ),
+              )),
             ],
           ),
         );
@@ -763,20 +865,28 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
               height: 36,
               child: TextField(
                 controller: controller,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 style: const TextStyle(color: AppColors.white, fontSize: 14),
                 textAlign: TextAlign.right,
                 decoration: InputDecoration(
                   hintText: '0.00',
-                  hintStyle:
-                  TextStyle(color: AppColors.textTertiary, fontSize: 13),
+                  hintStyle: TextStyle(
+                    color: AppColors.textTertiary,
+                    fontSize: 13,
+                  ),
                   prefixText: '₹',
                   prefixStyle: TextStyle(
-                      color: AppColors.textSecondary, fontSize: 14),
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                  ),
                   filled: true,
                   fillColor: AppColors.darkGrey,
                   contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 8),
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide.none,
@@ -784,7 +894,9 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: const BorderSide(
-                        color: AppColors.neonGreen, width: 1.5),
+                      color: AppColors.neonGreen,
+                      width: 1.5,
+                    ),
                   ),
                 ),
               ),
@@ -826,19 +938,24 @@ class _AddSplitExpenseScreenState extends State<AddSplitExpenseScreen> {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.neonGreen,
           foregroundColor: AppColors.black,
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           elevation: 0,
         ),
         child: _isLoading
             ? const SizedBox(
-            height: 24,
-            width: 24,
-            child: CircularProgressIndicator(
-                color: AppColors.black, strokeWidth: 2))
-            : const Text('Create Split Expense',
-            style:
-            TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                height: 24,
+                width: 24,
+                child: CircularProgressIndicator(
+                  color: AppColors.black,
+                  strokeWidth: 2,
+                ),
+              )
+            : const Text(
+                'Create Split Expense',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
       ),
     );
   }

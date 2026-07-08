@@ -45,7 +45,8 @@ class _LoginPageState extends State<LoginPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-              'Could not reach the server. Check your connection and try again.'),
+              'Could not reach the server. Check your connection and try again.'
+              ),
         ),
       );
     } finally {

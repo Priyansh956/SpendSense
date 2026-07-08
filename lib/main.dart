@@ -30,7 +30,14 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => TransactionProvider()),
-        ChangeNotifierProvider(create: (_) => SplitwiseProvider()..startListening()),
+        ChangeNotifierProvider(
+          create: (_) {
+            final provider = SplitwiseProvider();
+            provider.startListening();
+            provider.startAutoRefresh();
+            return provider;
+          },
+        ),
       ],
       child: MaterialApp(
         title: 'SpendSense',
@@ -64,18 +71,30 @@ class MyApp extends StatelessWidget {
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
+  Future<bool> _verifyBackendLogin() async {
+    if (!await ApiService.isLoggedIn()) {
+      return false;
+    }
+
+    try {
+      await ApiService.getMe();
+      return true;
+    } catch (e) {
+      await ApiService.logout();
+      return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
-      future: ApiService.isLoggedIn(),
+      future: _verifyBackendLogin(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             backgroundColor: AppColors.black,
             body: Center(
-              child: CircularProgressIndicator(
-                color: AppColors.neonGreen,
-              ),
+              child: CircularProgressIndicator(color: AppColors.neonGreen),
             ),
           );
         }
