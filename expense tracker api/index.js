@@ -24,4 +24,7 @@ app.use('/splitwise', splitwiseRouter);
 
 app.use(errorHandler);
 
-app.listen(process.env.PORT, () => {console.log(`Served successfully started at PORT number: ${process.env.PORT}`)});
+const port = parseInt(process.env.PORT) || 8000;
+app.listen(port, () => {
+    console.log(`Served successfully started at PORT number: ${port}`);
+});
