@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../providers/transaction_provider.dart';
@@ -19,15 +18,16 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   bool _isLoading = false;
-  String _email = '';
-  String _displayName = 'User';
+  bool _isProfileLoading = true;
+  bool _profileLoadFailed = false;
+  String _profileErrorMessage = '';
+  String? _email;
+  String? _displayName;
+  String? _createdAt;
 
-  User? get _firebaseUser => FirebaseAuth.instance.currentUser;
-  String get _resolvedEmail =>
-      _email.isNotEmpty ? _email : _firebaseUser?.email ?? 'No email';
-  String get _resolvedDisplayName => _displayName.isNotEmpty
-      ? _displayName
-      : (_firebaseUser?.email?.split('@')[0] ?? 'User');
+  String get _resolvedEmail => _email?.isNotEmpty == true ? _email! : 'No email';
+  String get _resolvedDisplayName =>
+      _displayName?.isNotEmpty == true ? _displayName! : 'User';
   String get _resolvedInitial => _resolvedEmail.isNotEmpty
       ? _resolvedEmail.substring(0, 1).toUpperCase()
       : 'U';
@@ -40,29 +40,56 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
 
-  /// Load user categories from Firestore
+  /// Load user profile and category state from the backend.
   Future<void> _loadUserData() async {
     final provider = Provider.of<TransactionProvider>(context, listen: false);
-    if (provider.selectedCategories.isEmpty) {
-      await provider.loadUserCategories();
+
+    // Always load profile data first so the user card is populated even when
+    // category loading fails or is not needed.
+    try {
+      await _loadUserProfile();
+    } catch (error) {
+      debugPrint('Profile load failed: $error');
     }
-    await _loadUserProfile();
+
+    if (provider.selectedCategories.isEmpty) {
+      try {
+        await provider.loadUserCategories();
+      } catch (error) {
+        debugPrint('Category load failed: $error');
+      }
+    }
   }
 
   Future<void> _loadUserProfile() async {
+    setState(() {
+      _isProfileLoading = true;
+      _profileLoadFailed = false;
+      _profileErrorMessage = '';
+    });
+
     try {
       final me = await ApiService.getMe();
       if (!mounted) return;
       setState(() {
-        _email = (me['email'] as String?) ?? '';
-        _displayName = _email.isNotEmpty ? _email.split('@')[0] : 'User';
+        _email = me['email'] as String?;
+        _displayName = (me['displayName'] as String?) ??
+            (_email?.isNotEmpty == true ? _email!.split('@')[0] : 'User');
+        _createdAt = me['createdAt']?.toString().split(' ')[0];
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
+      debugPrint('Error loading profile: $error');
       setState(() {
-        _email = _firebaseUser?.email ?? '';
-        _displayName = _email.isNotEmpty ? _email.split('@')[0] : 'User';
+        _profileLoadFailed = true;
+        _profileErrorMessage = error.toString();
+        _email = null;
+        _displayName = 'User';
+        _createdAt = 'Unknown';
       });
+    } finally {
+      if (!mounted) return;
+      setState(() => _isProfileLoading = false);
     }
   }
 
@@ -104,7 +131,6 @@ class _ProfilePageState extends State<ProfilePage> {
       setState(() => _isLoading = true);
       try {
         await ApiService.logout();
-        await FirebaseAuth.instance.signOut();
         if (mounted) {
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (context) => const LoginPage()),
@@ -145,11 +171,11 @@ class _ProfilePageState extends State<ProfilePage> {
   /// Send password reset email
   Future<void> _changePassword() async {
     try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: _resolvedEmail);
+      await ApiService.forgotPassword(email: _resolvedEmail);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Password reset email sent! Check your inbox.'),
+            content: Text('Password reset request sent. Check your email.'),
             backgroundColor: AppColors.success,
             duration: Duration(seconds: 3),
           ),
@@ -202,8 +228,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: 4),
             Text(
-              _firebaseUser?.metadata.creationTime?.toString().split(' ')[0] ??
-                  'Unknown',
+              _createdAt ?? 'Unknown',
               style: const TextStyle(
                 color: AppColors.white,
                 fontSize: 16,
@@ -461,32 +486,62 @@ class _ProfilePageState extends State<ProfilePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Welcome back,',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 14,
+                if (_isProfileLoading) ...[
+                  const SizedBox(height: 8),
+                  const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      color: AppColors.neonGreen,
+                      strokeWidth: 2,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _resolvedDisplayName,
-                  style: const TextStyle(
-                    color: AppColors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
+                ] else if (_profileLoadFailed) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Failed to load profile',
+                    style: const TextStyle(
+                      color: AppColors.error,
+                      fontSize: 14,
+                    ),
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _resolvedEmail,
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
+                  const SizedBox(height: 4),
+                  Text(
+                    _profileErrorMessage,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
+                ] else ...[
+                  const Text(
+                    'Welcome back,',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _resolvedDisplayName,
+                    style: const TextStyle(
+                      color: AppColors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _resolvedEmail,
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ],
             ),
           ),

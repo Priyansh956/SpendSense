@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../services/friends_api_service.dart';
+import '../services/splitwise_api_service.dart';
 import '../services/splitwise_service.dart';
 
 class SplitwiseProvider with ChangeNotifier {
   final FriendsApiService _friendsApi = FriendsApiService();
-  final SplitwiseService _firebaseService = SplitwiseService();
 
   List<Friend> _friends = [];
   List<FriendRequest> _incomingRequests = [];
@@ -30,6 +30,22 @@ class SplitwiseProvider with ChangeNotifier {
 
   Future<void> startListening() async {
     await refreshFriendsData();
+    await refreshSplitExpenses();
+  }
+
+  Future<void> refreshSplitExpenses() async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+
+      _splitExpenses = await SplitwiseApiService.getSplitExpenses();
+      _error = null;
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> refreshFriendsData() async {
@@ -53,6 +69,7 @@ class SplitwiseProvider with ChangeNotifier {
     _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       refreshFriendsData();
+      refreshSplitExpenses();
     });
   }
 
@@ -107,7 +124,8 @@ class SplitwiseProvider with ChangeNotifier {
 
   Future<void> removeFriend(String friendUid) async {
     try {
-      await _firebaseService.removeFriend(friendUid);
+      await FriendsApiService.removeFriend(friendUid);
+      await startListening();
     } catch (e) {
       rethrow;
     }
@@ -121,7 +139,8 @@ class SplitwiseProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      await _firebaseService.createSplitExpense(expense);
+      await SplitwiseApiService.createSplitExpense(expense);
+      await refreshSplitExpenses();
     } catch (e) {
       rethrow;
     } finally {
@@ -132,7 +151,8 @@ class SplitwiseProvider with ChangeNotifier {
 
   Future<void> markPaid(String expenseId, String participantUid) async {
     try {
-      await _firebaseService.markParticipantPaid(expenseId, participantUid);
+      await SplitwiseApiService.markParticipantPaid(expenseId, participantUid);
+      await refreshSplitExpenses();
     } catch (e) {
       rethrow;
     }
@@ -140,7 +160,8 @@ class SplitwiseProvider with ChangeNotifier {
 
   Future<void> settleExpense(String expenseId) async {
     try {
-      await _firebaseService.settleExpense(expenseId);
+      await SplitwiseApiService.settleExpense(expenseId);
+      await refreshSplitExpenses();
     } catch (e) {
       rethrow;
     }
@@ -148,7 +169,8 @@ class SplitwiseProvider with ChangeNotifier {
 
   Future<void> deleteSplitExpense(String expenseId) async {
     try {
-      await _firebaseService.deleteSplitExpense(expenseId);
+      await SplitwiseApiService.deleteSplitExpense(expenseId);
+      await refreshSplitExpenses();
     } catch (e) {
       rethrow;
     }

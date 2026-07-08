@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../providers/splitwise_provider.dart';
 import '../services/splitwise_service.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../services/api_service.dart';
 import 'add_friend_screen.dart';
 import 'balances_screen.dart';
 
@@ -752,8 +752,10 @@ class _ActivityTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = FirebaseAuth.instance.currentUser;
+    final currentUser = ApiService.currentUser;
     if (currentUser == null) return const SizedBox();
+    
+    final currentUid = currentUser['_id'] as String;
 
     return Consumer<SplitwiseProvider>(
       builder: (context, provider, _) {
@@ -785,7 +787,7 @@ class _ActivityTab extends StatelessWidget {
 
         for (final expense in expenses) {
           final payerUid = expense.paidByUid;
-          final payerName = payerUid == currentUser.uid 
+          final payerName = payerUid == currentUid 
               ? 'You' 
               : (expense.paidByName.isNotEmpty ? expense.paidByName.split(' ')[0] : 'Someone');
 
@@ -793,7 +795,7 @@ class _ActivityTab extends StatelessWidget {
             // Skip the payer's own share
             if (participant.uid == payerUid) continue;
 
-            final participantName = participant.uid == currentUser.uid 
+            final participantName = participant.uid == currentUid 
                 ? 'You' 
                 : (participant.displayName.isNotEmpty ? participant.displayName.split(' ')[0] : 'Someone');
 
@@ -819,7 +821,7 @@ class _ActivityTab extends StatelessWidget {
           itemBuilder: (context, index) {
             return _ActivityLogCard(
               log: logs[index],
-              currentUid: currentUser.uid,
+              currentUid: currentUid,
             );
           },
         );

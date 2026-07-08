@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../services/api_service.dart';
 
 /// Enum for friend request status
 enum FriendRequestStatus { pending, accepted, rejected }
@@ -136,6 +136,8 @@ class SplitParticipant {
       isPaid: isPaid ?? this.isPaid,
     );
   }
+
+  Map<String, dynamic> toJson() => toMap();
 }
 
 /// Split Expense model
@@ -166,6 +168,13 @@ class SplitExpense {
     this.isSettled = false,
   });
 
+  static DateTime _parseDate(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
+    return DateTime.now();
+  }
+
   factory SplitExpense.fromMap(Map<String, dynamic> map, String docId) {
     return SplitExpense(
       id: docId,
@@ -178,7 +187,7 @@ class SplitExpense {
       participants: (map['participants'] as List<dynamic>? ?? [])
           .map((p) => SplitParticipant.fromMap(p as Map<String, dynamic>))
           .toList(),
-      date: (map['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      date: _parseDate(map['date']),
       note: map['note'],
       isSettled: map['isSettled'] ?? false,
     );
@@ -198,6 +207,20 @@ class SplitExpense {
     'isSettled': isSettled,
   };
 
+  Map<String, dynamic> toJson() => {
+    'title': title,
+    'totalAmount': totalAmount,
+    'category': category,
+    'paidByUid': paidByUid,
+    'paidByEmail': paidByEmail,
+    'paidByName': paidByName,
+    'participants': participants.map((p) => p.toMap()).toList(),
+    'date': date.toIso8601String(),
+    if (note != null) 'note': note,
+    'isSettled': isSettled,
+    'involvedUids': [paidByUid, ...participants.map((p) => p.uid).toSet()],
+  };
+
   /// Amount the current user owes (or is owed)
   double amountForUser(String uid) {
     try {
@@ -213,10 +236,8 @@ class SplitExpense {
 /// SplitwiseService — all Firestore operations for the split feature
 class SplitwiseService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-
-  String? get _uid => _auth.currentUser?.uid;
-  String? get _email => _auth.currentUser?.email;
+  String? get _uid => ApiService.currentUser?['_id'];
+  String? get _email => ApiService.currentUser?['email'];
 
   // ─────────────────────────────────────────────
   // FRIEND SYSTEM

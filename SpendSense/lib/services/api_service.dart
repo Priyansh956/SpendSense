@@ -17,10 +17,12 @@ class ApiService {
   // Windows: run `ipconfig` and look for "IPv4 Address" under your WiFi adapter.
   // Mac/Linux: run `ifconfig` or `ip addr` and look for the WiFi interface (en0/wlan0).
   // Phone and laptop must be on the same WiFi network.
-  static const String baseUrl = 'http://192.168.1.6:8000';
+  static const String baseUrl = 'http://192.168.1.5:8000';
 
   static const _storage = FlutterSecureStorage();
   static const _tokenKey = 'auth_token';
+  static Map<String, dynamic>? _currentUser;
+  static Map<String, dynamic>? get currentUser => _currentUser;
 
   // ---------------- Token storage ----------------
 
@@ -93,11 +95,27 @@ class ApiService {
     }
 
     await _saveToken(body['token'] as String);
+    _currentUser = null;
+
+    // Prime the user profile cache immediately so the profile page can render
+    // without an extra failing request on first open.
+    await getMe();
   }
 
-  static Future<void> logout() => clearToken();
+  static Future<void> logout() async {
+    _currentUser = null;
+    await clearToken();
+  }
+
+  static Future<void> clearCurrentUser() async {
+    _currentUser = null;
+  }
 
   static Future<Map<String, dynamic>> getMe() async {
+    if (_currentUser != null) {
+      return _currentUser!;
+    }
+
     final res = await http.get(
       Uri.parse('$baseUrl/auth/me'),
       headers: await _authHeaders(),
@@ -105,12 +123,29 @@ class ApiService {
 
     final body = _decode(res);
     if (res.statusCode != 200) {
+      if (res.statusCode == 401) {
+        await logout();
+      }
       throw ApiException(
         body['message'] ?? 'Failed to fetch profile',
         res.statusCode,
       );
     }
-    return Map<String, dynamic>.from(body['data'] as Map);
+
+    final data = body['data'];
+    if (data is Map<String, dynamic>) {
+      _currentUser = Map<String, dynamic>.from(data);
+    } else if (data is Map) {
+      _currentUser = Map<String, dynamic>.from(data as Map);
+    } else if (data is List && data.isNotEmpty && data.first is Map) {
+      _currentUser = Map<String, dynamic>.from(data.first as Map);
+    } else if (data is Map && data.containsKey('user')) {
+      _currentUser = Map<String, dynamic>.from(data['user'] as Map);
+    } else {
+      throw ApiException('Invalid profile payload', res.statusCode);
+    }
+
+    return _currentUser!;
   }
 
   static Future<List<String>> updateCategories(List<String> categories) async {
@@ -128,7 +163,24 @@ class ApiService {
       );
     }
     final data = Map<String, dynamic>.from(body['data'] as Map);
+    _currentUser = data;
     return List<String>.from(data['categories'] ?? []);
+  }
+
+  static Future<void> forgotPassword({required String email}) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/auth/forgot-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email}),
+    );
+
+    final body = _decode(res);
+    if (res.statusCode != 200) {
+      throw ApiException(
+        body['message'] ?? 'Failed to send password reset request',
+        res.statusCode,
+      );
+    }
   }
 
   // ---------------- Transactions ----------------

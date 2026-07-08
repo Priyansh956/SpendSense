@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'providers/splitwise_provider.dart';
-import 'package:firebase_core/firebase_core.dart';
+
 import 'package:provider/provider.dart';
 
 import 'services/api_service.dart';
@@ -17,8 +17,7 @@ final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Still required: Splitwise/friends feature is not yet migrated off Firebase.
-  await Firebase.initializeApp();
+
   runApp(const MyApp());
 }
 
@@ -71,10 +70,24 @@ class MyApp extends StatelessWidget {
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
+  Future<bool> _verifyBackendLogin() async {
+    if (!await ApiService.isLoggedIn()) {
+      return false;
+    }
+
+    try {
+      await ApiService.getMe();
+      return true;
+    } catch (e) {
+      await ApiService.logout();
+      return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
-      future: ApiService.isLoggedIn(),
+      future: _verifyBackendLogin(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(

@@ -116,9 +116,37 @@ async function updateCategories(req, res) {
     }
 }
 
+async function forgotPassword(req, res) {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ success: false, message: 'Email is required' });
+        }
+
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(200).json({
+                success: true,
+                message: 'If an account exists for this email, password reset instructions have been sent.',
+            });
+        }
+
+        // TODO: integrate email service for real password resets.
+        return res.status(200).json({
+            success: true,
+            message: 'If an account exists for this email, password reset instructions have been sent.',
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ success: false, message: 'Failed to process password reset request' });
+    }
+}
+
 module.exports = {
     signUp,
     userLogin,
     getMe,
     updateCategories,
+    forgotPassword,
 };

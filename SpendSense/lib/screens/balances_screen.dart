@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../services/api_service.dart';
 import '../constants/app_colors.dart';
 import '../providers/splitwise_provider.dart';
 import 'package:spendsense/services/splitwise_service.dart';
@@ -12,7 +12,7 @@ class BalancesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = ApiService.currentUser;
 
     return Scaffold(
       backgroundColor: AppColors.black,
@@ -25,10 +25,11 @@ class BalancesScreen extends StatelessWidget {
                       style: TextStyle(color: AppColors.white)));
             }
 
-            final balances = provider.getBalances(user.uid);
-            final totalOwed = provider.totalOwedToYou(user.uid);
-            final totalOwe = provider.totalYouOwe(user.uid);
-            final net = provider.netBalance(user.uid);
+            final uid = user['_id'] as String;
+            final balances = provider.getBalances(uid);
+            final totalOwed = provider.totalOwedToYou(uid);
+            final totalOwe = provider.totalYouOwe(uid);
+            final net = provider.netBalance(uid);
 
             return Column(
               children: [
@@ -38,7 +39,7 @@ class BalancesScreen extends StatelessWidget {
                   child: balances.isEmpty
                       ? _buildEmptyState()
                       : _buildBalanceList(
-                      context, provider, balances, user.uid),
+                      context, provider, balances, uid),
                 ),
               ],
             );
