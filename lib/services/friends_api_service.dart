@@ -135,4 +135,19 @@ class FriendsApiService {
       );
     }
   }
+
+  static Future<void> removeFriend(String friendUid) async {
+    final res = await http.delete(
+      Uri.parse('${ApiService.baseUrl}/friends/$friendUid'),
+      headers: await ApiService.authHeaders(),
+    );
+
+    final body = ApiService.decode(res);
+    if (res.statusCode != 200) {
+      throw ApiException(
+        body['message'] ?? 'Failed to remove friend',
+        res.statusCode,
+      );
+    }
+  }
 }

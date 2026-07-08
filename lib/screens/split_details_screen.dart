@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../services/api_service.dart';
 import 'package:intl/intl.dart';
 import '../constants/app_colors.dart';
 import '../models/category_model.dart';
@@ -19,7 +19,7 @@ class SplitDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = ApiService.currentUser;
 
     return Scaffold(
       backgroundColor: AppColors.black,
@@ -55,15 +55,16 @@ class SplitDetailsScreen extends StatelessWidget {
           builder: (context, provider, _) {
             if (user == null) return const SizedBox.shrink();
 
+            final uid = user['_id'] as String;
             final expenses =
-            provider.expensesWithFriend(friendUid, user.uid);
+            provider.expensesWithFriend(friendUid, uid);
 
             if (expenses.isEmpty) {
               return _buildEmptyState();
             }
 
             // Compute balance with this specific friend
-            final balances = provider.getBalances(user.uid);
+            final balances = provider.getBalances(uid);
             final balance = balances[friendUid] ?? 0;
 
             return Column(
@@ -75,7 +76,7 @@ class SplitDetailsScreen extends StatelessWidget {
                     itemCount: expenses.length,
                     itemBuilder: (context, index) => _SplitExpenseCard(
                       expense: expenses[index],
-                      currentUid: user.uid,
+                      currentUid: uid,
                       friendUid: friendUid,
                     ),
                   ),

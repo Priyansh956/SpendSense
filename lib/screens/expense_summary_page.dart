@@ -6,7 +6,7 @@ import '../models/transaction_model.dart';
 import '../models/category_model.dart';
 import '../providers/transaction_provider.dart';
 import '../constants/app_colors.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../services/api_service.dart';
 
 class ExpenseSummaryPage extends StatefulWidget {
   const ExpenseSummaryPage({super.key});
@@ -20,7 +20,7 @@ class _ExpenseSummaryPageState extends State<ExpenseSummaryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = ApiService.currentUser;
     
     return Scaffold(
       backgroundColor: AppColors.black,
@@ -63,7 +63,7 @@ class _ExpenseSummaryPageState extends State<ExpenseSummaryPage> {
     );
   }
 
-  Widget _buildHeader(User? user) {
+  Widget _buildHeader(Map<String, dynamic>? user) {
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Row(
@@ -72,7 +72,7 @@ class _ExpenseSummaryPageState extends State<ExpenseSummaryPage> {
             radius: 24,
             backgroundColor: AppColors.neonGreen,
             child: Text(
-              user?.email?.substring(0, 1).toUpperCase() ?? 'U',
+              user?['email']?.substring(0, 1).toUpperCase() ?? 'U',
               style: const TextStyle(
                 color: AppColors.black,
                 fontSize: 20,

@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../services/api_service.dart';
 
 /// Enum for friend request status
 enum FriendRequestStatus { pending, accepted, rejected }
@@ -236,10 +236,8 @@ class SplitExpense {
 /// SplitwiseService — all Firestore operations for the split feature
 class SplitwiseService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-
-  String? get _uid => _auth.currentUser?.uid;
-  String? get _email => _auth.currentUser?.email;
+  String? get _uid => ApiService.currentUser?['_id'];
+  String? get _email => ApiService.currentUser?['email'];
 
   // ─────────────────────────────────────────────
   // FRIEND SYSTEM

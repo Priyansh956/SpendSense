@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../services/api_service.dart';
 
 import '../models/transaction_model.dart';
 import '../models/category_model.dart';
@@ -85,7 +85,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = ApiService.currentUser;
 
     return ScaffoldMessenger(
       key: _messengerKey,
@@ -127,7 +127,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
     );
   }
 
-  Widget _buildHeader(User? user) {
+  Widget _buildHeader(Map<String, dynamic>? user) {
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Row(
@@ -136,7 +136,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
             radius: 24,
             backgroundColor: AppColors.neonGreen,
             child: Text(
-              user?.email?.substring(0, 1).toUpperCase() ?? 'U',
+              user?['email']?.substring(0, 1).toUpperCase() ?? 'U',
               style: const TextStyle(
                 color: AppColors.black,
                 fontWeight: FontWeight.bold,
