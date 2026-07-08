@@ -71,10 +71,24 @@ class MyApp extends StatelessWidget {
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
+  Future<bool> _verifyBackendLogin() async {
+    if (!await ApiService.isLoggedIn()) {
+      return false;
+    }
+
+    try {
+      await ApiService.getMe();
+      return true;
+    } catch (e) {
+      await ApiService.logout();
+      return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
-      future: ApiService.isLoggedIn(),
+      future: _verifyBackendLogin(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(

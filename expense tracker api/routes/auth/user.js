@@ -7,6 +7,7 @@ const router = express.Router();
 
 router.post('/signup', signUp);
 router.post('/login', userLogin);
+// router.post('/forgot-password', forgotPassword);
 
 router.get('/me', restrictToLoggedInUsersOnly, getMe);
 router.patch('/categories', restrictToLoggedInUsersOnly, updateCategories);

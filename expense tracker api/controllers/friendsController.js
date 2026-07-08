@@ -180,6 +180,29 @@ const rejectFriendRequest = async (req, res) => {
   }
 };
 
+const removeFriend = async (req, res) => {
+  try {
+    const { friendUid } = req.params;
+
+    const result = await FriendRequest.deleteMany({
+      status: 'accepted',
+      $or: [
+        { fromUser: req.user._id, toUser: friendUid },
+        { fromUser: friendUid, toUser: req.user._id },
+      ],
+    });
+
+    if (!result.deletedCount) {
+      return res.status(404).json({ success: false, message: 'Friend relationship not found' });
+    }
+
+    return res.status(200).json({ success: true, message: 'Friend removed' });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: 'Failed to remove friend' });
+  }
+};
+
 const listFriends = async (req, res) => {
   try {
     const acceptedRequests = await FriendRequest.find({
@@ -212,5 +235,6 @@ module.exports = {
   listOutgoingRequests,
   acceptFriendRequest,
   rejectFriendRequest,
+  removeFriend,
   listFriends,
 };

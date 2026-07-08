@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../services/friends_api_service.dart';
+import '../services/splitwise_api_service.dart';
 import '../services/splitwise_service.dart';
 
 class SplitwiseProvider with ChangeNotifier {
@@ -30,6 +31,22 @@ class SplitwiseProvider with ChangeNotifier {
 
   Future<void> startListening() async {
     await refreshFriendsData();
+    await refreshSplitExpenses();
+  }
+
+  Future<void> refreshSplitExpenses() async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+
+      _splitExpenses = await SplitwiseApiService.getSplitExpenses();
+      _error = null;
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> refreshFriendsData() async {
@@ -53,6 +70,7 @@ class SplitwiseProvider with ChangeNotifier {
     _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       refreshFriendsData();
+      refreshSplitExpenses();
     });
   }
 
@@ -121,7 +139,8 @@ class SplitwiseProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      await _firebaseService.createSplitExpense(expense);
+      await SplitwiseApiService.createSplitExpense(expense);
+      await refreshSplitExpenses();
     } catch (e) {
       rethrow;
     } finally {

@@ -5,6 +5,7 @@ const express = require('express');
 const authRouter = require('./routes/auth/user');
 const transactionRouter = require('./routes/transactions/transactions');
 const friendsRouter = require('./routes/friends/friends');
+const splitwiseRouter = require('./routes/splitwise/splitwise');
 const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -17,6 +18,7 @@ app.use(express.json());
 app.use('/auth', authRouter);
 app.use('/transactions', transactionRouter);
 app.use('/friends', friendsRouter);
+app.use('/splitwise', splitwiseRouter);
 
 app.use(errorHandler);
 

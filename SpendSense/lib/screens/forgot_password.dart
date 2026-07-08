@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../services/api_service.dart';
 import '../screens/login.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
@@ -26,7 +26,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     setState(() => _loading = true);
 
     try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      await ApiService.forgotPassword(email: email);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -46,9 +46,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           (route) => false,
         );
       });
-    } on FirebaseAuthException catch (e) {
+    } on ApiException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? "Something went wrong")),
+        SnackBar(content: Text(e.message)),
       );
     } finally {
       if (mounted) {
