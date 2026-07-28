@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/api_service.dart';
 
 /// Enum for friend request status
@@ -60,9 +59,6 @@ class FriendRequest {
   }
 
   static DateTime _parseCreatedAt(dynamic value) {
-    if (value is Timestamp) {
-      return value.toDate();
-    }
     if (value is DateTime) {
       return value;
     }
@@ -89,7 +85,7 @@ class FriendRequest {
     'toUid': toUid,
     'toEmail': toEmail,
     'status': status.name,
-    'createdAt': Timestamp.fromDate(createdAt),
+    'createdAt': createdAt.toIso8601String(),
   };
 }
 
@@ -169,7 +165,6 @@ class SplitExpense {
   });
 
   static DateTime _parseDate(dynamic value) {
-    if (value is Timestamp) return value.toDate();
     if (value is DateTime) return value;
     if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
     return DateTime.now();
@@ -202,7 +197,7 @@ class SplitExpense {
     'paidByName': paidByName,
     'participants': participants.map((p) => p.toMap()).toList(),
     'involvedUids': {paidByUid, ...participants.map((p) => p.uid)}.toList(),
-    'date': Timestamp.fromDate(date),
+    // 'date': Timestamp.fromDate(date),
     'note': note,
     'isSettled': isSettled,
   };
@@ -231,259 +226,4 @@ class SplitExpense {
   }
 
   bool isParticipant(String uid) => participants.any((p) => p.uid == uid);
-}
-
-/// SplitwiseService — all Firestore operations for the split feature
-class SplitwiseService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-  String? get _uid => ApiService.currentUser?['_id'];
-  String? get _email => ApiService.currentUser?['email'];
-
-  // ─────────────────────────────────────────────
-  // FRIEND SYSTEM
-  // ─────────────────────────────────────────────
-
-  /// Check if email is registered in the app
-  Future<Map<String, dynamic>?> findUserByEmail(String email) async {
-    final query = await _db
-        .collection('users')
-        .where('email', isEqualTo: email.trim().toLowerCase())
-        .limit(1)
-        .get();
-
-    if (query.docs.isEmpty) return null;
-    final doc = query.docs.first;
-    return {'uid': doc.id, ...doc.data()};
-  }
-
-  /// Send a friend request
-  Future<void> sendFriendRequest(String toEmail) async {
-    final uid = _uid;
-    final email = _email;
-    if (uid == null || email == null) throw Exception('Not logged in');
-
-    // Find target user
-    final targetUser = await findUserByEmail(toEmail);
-    if (targetUser == null) throw Exception('No user found with that email');
-
-    final toUid = targetUser['uid'] as String;
-    if (toUid == uid) throw Exception('You cannot add yourself');
-
-    // Check if already friends
-    final existingFriend = await _db
-        .collection('users')
-        .doc(uid)
-        .collection('friends')
-        .doc(toUid)
-        .get();
-    if (existingFriend.exists) throw Exception('Already friends');
-
-    // Check for existing pending request
-    final existingRequest = await _db
-        .collection('friendRequests')
-        .where('fromUid', isEqualTo: uid)
-        .where('toUid', isEqualTo: toUid)
-        .where('status', isEqualTo: 'pending')
-        .get();
-    if (existingRequest.docs.isNotEmpty) {
-      throw Exception('Friend request already sent');
-    }
-
-    // Create request
-    await _db.collection('friendRequests').add({
-      'fromUid': uid,
-      'fromEmail': email,
-      'toUid': toUid,
-      'toEmail': toEmail.trim().toLowerCase(),
-      'status': 'pending',
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-  }
-
-  /// Stream of incoming friend requests
-  Stream<List<FriendRequest>> incomingRequestsStream() {
-    final uid = _uid;
-    if (uid == null) return Stream.value([]);
-
-    return _db
-        .collection('friendRequests')
-        .where('toUid', isEqualTo: uid)
-        .where('status', isEqualTo: 'pending')
-        .snapshots()
-        .map(
-          (s) =>
-              s.docs.map((d) => FriendRequest.fromMap(d.data(), d.id)).toList(),
-        );
-  }
-
-  /// Stream of sent friend requests
-  Stream<List<FriendRequest>> sentRequestsStream() {
-    final uid = _uid;
-    if (uid == null) return Stream.value([]);
-
-    return _db
-        .collection('friendRequests')
-        .where('fromUid', isEqualTo: uid)
-        .where('status', isEqualTo: 'pending')
-        .snapshots()
-        .map(
-          (s) =>
-              s.docs.map((d) => FriendRequest.fromMap(d.data(), d.id)).toList(),
-        );
-  }
-
-  /// Accept a friend request
-  Future<void> acceptFriendRequest(FriendRequest request) async {
-    final uid = _uid;
-    if (uid == null) throw Exception('Not logged in');
-
-    final batch = _db.batch();
-
-    // Update request status
-    batch.update(_db.collection('friendRequests').doc(request.id), {
-      'status': 'accepted',
-    });
-
-    // Add both ways to friends subcollection
-    batch.set(
-      _db
-          .collection('users')
-          .doc(uid)
-          .collection('friends')
-          .doc(request.fromUid),
-      {
-        'uid': request.fromUid,
-        'email': request.fromEmail,
-        'displayName': request.fromEmail.split('@')[0],
-        'addedAt': FieldValue.serverTimestamp(),
-      },
-    );
-
-    batch.set(
-      _db
-          .collection('users')
-          .doc(request.fromUid)
-          .collection('friends')
-          .doc(uid),
-      {
-        'uid': uid,
-        'email': _email,
-        'displayName': _email?.split('@')[0] ?? 'User',
-        'addedAt': FieldValue.serverTimestamp(),
-      },
-    );
-
-    await batch.commit();
-  }
-
-  /// Reject a friend request
-  Future<void> rejectFriendRequest(String requestId) async {
-    await _db.collection('friendRequests').doc(requestId).update({
-      'status': 'rejected',
-    });
-  }
-
-  /// Stream of friends list
-  Stream<List<Friend>> friendsStream() {
-    final uid = _uid;
-    if (uid == null) return Stream.value([]);
-
-    return _db
-        .collection('users')
-        .doc(uid)
-        .collection('friends')
-        .snapshots()
-        .map((s) => s.docs.map((d) => Friend.fromMap(d.data())).toList());
-  }
-
-  /// Remove a friend
-  Future<void> removeFriend(String friendUid) async {
-    final uid = _uid;
-    if (uid == null) throw Exception('Not logged in');
-
-    final batch = _db.batch();
-    batch.delete(
-      _db.collection('users').doc(uid).collection('friends').doc(friendUid),
-    );
-    batch.delete(
-      _db.collection('users').doc(friendUid).collection('friends').doc(uid),
-    );
-    await batch.commit();
-  }
-
-  // ─────────────────────────────────────────────
-  // SPLIT EXPENSES
-  // ─────────────────────────────────────────────
-
-  /// Create a split expense (writes to all participants' feeds)
-  Future<void> createSplitExpense(SplitExpense expense) async {
-    final docRef = _db.collection('splitExpenses').doc(expense.id);
-    await docRef.set(expense.toMap());
-  }
-
-  /// Stream of split expenses involving the current user
-  Stream<List<SplitExpense>> splitExpensesStream() {
-    final uid = _uid;
-    if (uid == null) return Stream.value([]);
-
-    // Fetch all expenses where the user is involved (as payer or participant)
-    return _db
-        .collection('splitExpenses')
-        .where('involvedUids', arrayContains: uid)
-        .snapshots()
-        .map(
-          (s) =>
-              s.docs.map((d) => SplitExpense.fromMap(d.data(), d.id)).toList(),
-        );
-  }
-
-  /// Mark a participant as paid in a split expense
-  Future<void> markParticipantPaid(
-    String expenseId,
-    String participantUid,
-  ) async {
-    final doc = await _db.collection('splitExpenses').doc(expenseId).get();
-    if (!doc.exists) throw Exception('Expense not found');
-
-    final expense = SplitExpense.fromMap(doc.data()!, doc.id);
-    final updatedParticipants = expense.participants.map((p) {
-      if (p.uid == participantUid) return p.copyWith(isPaid: true);
-      return p;
-    }).toList();
-
-    final allPaid = updatedParticipants.every((p) => p.isPaid);
-
-    await _db.collection('splitExpenses').doc(expenseId).update({
-      'participants': updatedParticipants.map((p) => p.toMap()).toList(),
-      'isSettled': allPaid,
-    });
-  }
-
-  /// Settle (fully close) a split expense
-  Future<void> settleExpense(String expenseId) async {
-    await _db.collection('splitExpenses').doc(expenseId).update({
-      'isSettled': true,
-    });
-  }
-
-  /// Delete a split expense
-  Future<void> deleteSplitExpense(String expenseId) async {
-    await _db.collection('splitExpenses').doc(expenseId).delete();
-  }
-
-  /// Get all split expenses for balance calculations (both as payer & participant)
-  Future<List<SplitExpense>> getAllSplitExpensesForUser() async {
-    final uid = _uid;
-    if (uid == null) return [];
-
-    final involvedQuery = await _db
-        .collection('splitExpenses')
-        .where('involvedUids', arrayContains: uid)
-        .where('isSettled', isEqualTo: false)
-        .get();
-
-    return involvedQuery.docs
-        .map((d) => SplitExpense.fromMap(d.data(), d.id))
-        .toList();
-  }
 }
